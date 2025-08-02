@@ -2,91 +2,42 @@
   "English": {
     "ui": {
       "title": "STIAB Assistant",
-      "system_label": "Which system is the issue related to?",
+      "system_label": "Select a system",
       "issue_placeholder": "Describe your issue",
-      "suggestions_label": "Do any of these match your issue?",
-      "no_results": "No similar problems found in the database."
+      "suggestions_label": "Possible issues",
+      "no_results": "No matching problems found.",
+      "not_sure": "I'm not sure"
     },
     "buttons": {
-      "yes": "✅ Yes, it worked",
-      "no": "❌ No, still an issue",
-      "success": "Great to hear that solved your problem! 🎉",
-      "error": "I’ve run out of suggestions from the guide. Please contact support."
+      "yes": "Yes",
+      "no": "No",
+      "success": "Glad it worked!",
+      "error": "Please contact support."
     }
   },
   "French": {
     "ui": {
-      "title": "Assistant STIAB",
-      "system_label": "À quel système le problème est-il lié ?",
-      "issue_placeholder": "Décrivez votre problème",
-      "suggestions_label": "L’un de ces problèmes correspond-il au vôtre ?",
-      "no_results": "Aucun problème similaire trouvé dans la base de données."
-    },
-    "buttons": {
-      "yes": "✅ Oui, ça a marché",
-      "no": "❌ Non, j’ai encore un problème",
-      "success": "Ravi d’apprendre que cela a résolu votre problème ! 🎉",
-      "error": "Je n’ai plus de suggestions. Veuillez contacter le support."
+      "not_sure": "Je ne sais pas"
     }
   },
   "Dutch": {
     "ui": {
-      "title": "STIAB Assistent",
-      "system_label": "Met welk systeem heeft het probleem te maken?",
-      "issue_placeholder": "Beschrijf uw probleem",
-      "suggestions_label": "Komt een van deze overeen met uw probleem?",
-      "no_results": "Geen soortgelijke problemen gevonden in de database."
-    },
-    "buttons": {
-      "yes": "✅ Ja, het werkte",
-      "no": "❌ Nee, nog steeds een probleem",
-      "success": "Fijn om te horen dat het probleem is opgelost! 🎉",
-      "error": "Ik heb geen suggesties meer. Neem contact op met de ondersteuning."
+      "not_sure": "Ik weet het niet"
     }
   },
   "Spanish": {
     "ui": {
-      "title": "Asistente STIAB",
-      "system_label": "¿Con qué sistema está relacionado el problema?",
-      "issue_placeholder": "Describe tu problema",
-      "suggestions_label": "¿Coincide alguno de estos con tu problema?",
-      "no_results": "No se encontraron problemas similares en la base de datos."
-    },
-    "buttons": {
-      "yes": "✅ Sí, funcionó",
-      "no": "❌ No, todavía hay un problema",
-      "success": "¡Me alegra saber que eso resolvió tu problema! 🎉",
-      "error": "Me he quedado sin sugerencias. Por favor, contacta con soporte."
+      "not_sure": "No estoy seguro"
     }
   },
   "Italian": {
     "ui": {
-      "title": "Assistente STIAB",
-      "system_label": "A quale sistema è relativo il problema?",
-      "issue_placeholder": "Descrivi il tuo problema",
-      "suggestions_label": "Uno di questi corrisponde al tuo problema?",
-      "no_results": "Nessun problema simile trovato nel database."
-    },
-    "buttons": {
-      "yes": "✅ Sì, ha funzionato",
-      "no": "❌ No, c’è ancora un problema",
-      "success": "Felice di sapere che ha risolto il problema! 🎉",
-      "error": "Non ho più suggerimenti. Si prega di contattare l’assistenza."
+      "not_sure": "Non sono sicuro"
     }
   },
   "German": {
     "ui": {
-      "title": "STIAB Assistent",
-      "system_label": "Mit welchem System hängt das Problem zusammen?",
-      "issue_placeholder": "Beschreiben Sie Ihr Problem",
-      "suggestions_label": "Passt eines dieser Probleme zu Ihrem?",
-      "no_results": "Keine ähnlichen Probleme in der Datenbank gefunden."
-    },
-    "buttons": {
-      "yes": "✅ Ja, es hat funktioniert",
-      "no": "❌ Nein, immer noch ein Problem",
-      "success": "Schön zu hören, dass dein Problem gelöst wurde! 🎉",
-      "error": "Mir sind die Vorschläge ausgegangen. Bitte kontaktiere den Support."
+      "not_sure": "Ich bin mir nicht sicher"
     }
   }
 }
