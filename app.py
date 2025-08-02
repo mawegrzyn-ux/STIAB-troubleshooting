@@ -8,7 +8,7 @@ from openai import OpenAI
 # -------------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.title("🤖 AI Troubleshooting Assistant")
+st.title("🤖 STIAB Troubleshooting Assistant")
 
 # Load troubleshooting data
 with open("troubleshooting.json", "r") as f:
