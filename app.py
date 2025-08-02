@@ -4,26 +4,19 @@ from rapidfuzz import fuzz
 from openai import OpenAI
 
 # -------------------
-# Setup OpenAI
+# Setup
 # -------------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 st.set_page_config(page_title="AI Troubleshooting Assistant", layout="centered")
 
-# -------------------
-# Load external CSS
-# -------------------
+# Load CSS
 def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 local_css("styles.css")
 
-# -------------------
-# Load translations
-# -------------------
-with open("translations.json", "r") as f:
-    translations_data = json.load(f)
-
+# Languages with flags
 languages = {
     "🇬🇧": "English",
     "🇫🇷": "French",
@@ -33,33 +26,42 @@ languages = {
     "🇩🇪": "German"
 }
 
+# Load translations
+with open("translations.json", "r") as f:
+    translations_data = json.load(f)
+
 # Default language
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
 
-# Flag buttons bar
-cols = st.columns(len(languages))
-for idx, (flag, lang) in enumerate(languages.items()):
-    with cols[idx]:
-        if st.button(flag, key=f"lang_{flag}"):
-            st.session_state.selected_language = lang
+# Render flag bar
+flags_html = '<div class="flag-bar">'
+for flag, lang in languages.items():
+    flags_html += f"""
+    <form action="" method="get">
+        <button class="flag-btn" type="submit" name="lang" value="{lang}">{flag}</button>
+    </form>
+    """
+flags_html += "</div>"
+st.markdown(flags_html, unsafe_allow_html=True)
+
+# Capture flag click via query params
+params = st.experimental_get_query_params()
+if "lang" in params:
+    st.session_state.selected_language = params["lang"][0]
 
 selected_language = st.session_state.selected_language
 ui_local = translations_data[selected_language]["ui"]
 local_text = translations_data[selected_language]["buttons"]
 
-# -------------------
-# Page Title
-# -------------------
+# App title
 st.title("🤖 AI Troubleshooting Assistant")
 
-# -------------------
-# Load troubleshooting database
-# -------------------
+# Load troubleshooting data
 with open("troubleshooting.json", "r") as f:
     troubleshooting_data = json.load(f)
 
-# Initialize session state
+# Init session state
 if "system_choice" not in st.session_state:
     st.session_state.system_choice = None
 if "candidates" not in st.session_state:
@@ -71,9 +73,7 @@ if "selected_problem" not in st.session_state:
 if "awaiting_yes_no" not in st.session_state:
     st.session_state.awaiting_yes_no = False
 
-# -------------------
-# System Selection
-# -------------------
+# Step 1: System choice
 system_choice = st.selectbox(
     ui_local["system_label"],
     ["-- Select a system --", "KDS", "Kiosk Software", "POS", "I'm not sure"]
@@ -89,14 +89,12 @@ def get_match_label(score):
     else:
         return "Possible Match"
 
-# -------------------
-# Issue Input
-# -------------------
+# Step 2: Issue input
 if st.session_state.system_choice:
     user_input = st.text_input(ui_local["issue_placeholder"])
 
     if user_input and not st.session_state.selected_problem:
-        # Translate user input to English for matching
+        # Translate input for matching
         translation = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -138,9 +136,7 @@ if st.session_state.system_choice:
         else:
             st.warning(ui_local["no_results"])
 
-# -------------------
-# GPT Answer
-# -------------------
+# Step 3: Show GPT answer
 if st.session_state.selected_problem:
     chosen_entry = next(entry for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
     score = next(score for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
@@ -169,9 +165,7 @@ if st.session_state.selected_problem:
 
     st.session_state.awaiting_yes_no = True
 
-# -------------------
-# Yes / No Buttons
-# -------------------
+# Step 4: Yes/No buttons
 if st.session_state.awaiting_yes_no:
     col1, col2 = st.columns(2)
     with col1:
