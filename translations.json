@@ -18,26 +18,56 @@
   "French": {
     "ui": {
       "not_sure": "Je ne sais pas"
+    },
+    "buttons": {
+      "yes": "Oui",
+      "no": "Non",
+      "success": "Content que cela ait fonctionné !",
+      "error": "Veuillez contacter le support."
     }
   },
   "Dutch": {
     "ui": {
       "not_sure": "Ik weet het niet"
+    },
+    "buttons": {
+      "yes": "Ja",
+      "no": "Nee",
+      "success": "Blij dat het gelukt is!",
+      "error": "Neem contact op met de ondersteuning."
     }
   },
   "Spanish": {
     "ui": {
       "not_sure": "No estoy seguro"
+    },
+    "buttons": {
+      "yes": "Sí",
+      "no": "No",
+      "success": "¡Me alegra que haya funcionado!",
+      "error": "Por favor, contacte con soporte."
     }
   },
   "Italian": {
     "ui": {
       "not_sure": "Non sono sicuro"
+    },
+    "buttons": {
+      "yes": "Sì",
+      "no": "No",
+      "success": "Felice che abbia funzionato!",
+      "error": "Si prega di contattare l'assistenza."
     }
   },
   "German": {
     "ui": {
       "not_sure": "Ich bin mir nicht sicher"
+    },
+    "buttons": {
+      "yes": "Ja",
+      "no": "Nein",
+      "success": "Freut mich, dass es geklappt hat!",
+      "error": "Bitte wenden Sie sich an den Support."
     }
   }
 }
