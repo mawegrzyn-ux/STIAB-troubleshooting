@@ -107,6 +107,14 @@ if st.session_state.show_lang_popup:
     if st.button("Confirm"):
         st.session_state.selected_language = selected_popup_lang
         st.session_state.show_lang_popup = False
+
+        # Reset UI state after language change
+        st.session_state.system_choice = None
+        st.session_state.candidates = []
+        st.session_state.current_index = 0
+        st.session_state.selected_problem = None
+        st.session_state.awaiting_yes_no = False
+
         st.rerun()
 
 # -------------------
