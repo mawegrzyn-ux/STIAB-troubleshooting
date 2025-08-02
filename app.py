@@ -7,7 +7,7 @@ from openai import OpenAI
 # Setup
 # -------------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-st.set_page_config(page_title="AI Troubleshooting Assistant", layout="centered")
+st.set_page_config(page_title="STIAB Assistant", layout="centered")
 
 # Load CSS
 def local_css(file_name):
@@ -34,18 +34,20 @@ with open("translations.json", "r") as f:
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
 
-# Horizontal flag row with Streamlit buttons
-cols = st.columns(len(languages))
-for idx, (flag, lang) in enumerate(languages.items()):
-    if cols[idx].button(flag, key=f"lang_{lang}"):
-        st.session_state.selected_language = lang
+# Scrollable flag bar using Streamlit buttons
+flag_container = st.container()
+with flag_container:
+    cols = st.columns(len(languages))
+    for idx, (flag, lang) in enumerate(languages.items()):
+        if cols[idx].button(flag, key=f"lang_{lang}"):
+            st.session_state.selected_language = lang
 
 selected_language = st.session_state.selected_language
 ui_local = translations_data[selected_language]["ui"]
 local_text = translations_data[selected_language]["buttons"]
 
 # App title
-st.title("🤖 AI Troubleshooting Assistant")
+st.title(ui_local["title"])
 
 # Load troubleshooting data
 with open("troubleshooting.json", "r") as f:
