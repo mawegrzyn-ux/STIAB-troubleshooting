@@ -13,7 +13,6 @@ st.set_page_config(page_title="STIAB Assistant", layout="centered")
 def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
 local_css("styles.css")
 
 # Languages with flags
@@ -34,13 +33,22 @@ with open("translations.json", "r") as f:
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
 
-# Scrollable flag bar using Streamlit buttons
-flag_container = st.container()
-with flag_container:
-    cols = st.columns(len(languages))
-    for idx, (flag, lang) in enumerate(languages.items()):
-        if cols[idx].button(flag, key=f"lang_{lang}"):
-            st.session_state.selected_language = lang
+# Render flag bar with HTML forms (no wrapping, scrollable)
+flags_html = '<div class="flag-bar">'
+for flag, lang in languages.items():
+    flags_html += f"""
+        <form action="/" method="get" style="display:inline;">
+            <input type="hidden" name="lang" value="{lang}">
+            <button class="flag-btn" type="submit">{flag}</button>
+        </form>
+    """
+flags_html += "</div>"
+st.markdown(flags_html, unsafe_allow_html=True)
+
+# Capture language selection
+params = st.query_params
+if "lang" in params:
+    st.session_state.selected_language = params["lang"]
 
 selected_language = st.session_state.selected_language
 ui_local = translations_data[selected_language]["ui"]
