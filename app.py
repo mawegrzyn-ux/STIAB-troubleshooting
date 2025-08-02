@@ -40,10 +40,8 @@ def load_json_safe(file_path, default_data):
 # -------------------
 # Load Data
 # -------------------
-# Supported languages
 languages = ["English", "French", "Dutch", "Spanish", "Italian", "German"]
 
-# Translations
 translations_data = load_json_safe("translations.json", {
     "English": {
         "ui": {
@@ -62,20 +60,21 @@ translations_data = load_json_safe("translations.json", {
     }
 })
 
-# Troubleshooting knowledge base
 troubleshooting_data = load_json_safe("troubleshooting.json", [])
-
-# Problem translations cache
 problem_translations = load_json_safe("problem_translations.json", {})
 
 # -------------------
-# Helper Functions
+# Translation with Cache
 # -------------------
 def translate_problem(problem_text, lang):
-    """Translate a problem string into the target language, with caching."""
+    """Translate a problem string into the target language, with caching to file."""
+    global problem_translations
+    
+    # Return cached if available
     if problem_text in problem_translations and lang in problem_translations[problem_text]:
         return problem_translations[problem_text][lang]
 
+    # Otherwise translate using GPT
     translation = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -86,12 +85,18 @@ def translate_problem(problem_text, lang):
     )
     translated_problem = translation.choices[0].message.content.strip()
 
+    # Save to in-memory cache
     if problem_text not in problem_translations:
         problem_translations[problem_text] = {}
     problem_translations[problem_text][lang] = translated_problem
 
-    with open("problem_translations.json", "w", encoding="utf-8") as f:
-        json.dump(problem_translations, f, indent=2, ensure_ascii=False)
+    # Write immediately to file
+    try:
+        with open("problem_translations.json", "w", encoding="utf-8") as f:
+            json.dump(problem_translations, f, indent=2, ensure_ascii=False)
+        st.info(f"💾 Cached translation for '{problem_text}' in {lang}.")
+    except Exception as e:
+        st.error(f"⚠️ Could not save translation cache: {e}")
 
     return translated_problem
 
@@ -104,7 +109,7 @@ def get_match_label(score):
         return "Possible Match"
 
 # -------------------
-# Session State Setup
+# Session State
 # -------------------
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
@@ -253,3 +258,9 @@ if st.session_state.awaiting_yes_no:
                 st.session_state.selected_problem = None
                 st.session_state.candidates = []
                 st.session_state.current_index = 0
+
+# -------------------
+# Debugging Option
+# -------------------
+if st.checkbox("Show Translation Cache Debug"):
+    st.json(problem_translations)
