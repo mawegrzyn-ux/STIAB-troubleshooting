@@ -2,3 +2,4 @@ streamlit
 openai
 rapidfuzz
 streamlit-webrtc
+av
