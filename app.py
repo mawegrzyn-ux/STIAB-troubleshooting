@@ -8,7 +8,7 @@ from openai import OpenAI
 # -------------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
-st.title("🤖 STIAB Troubleshooting Assistant")
+st.title("🤖 AI Troubleshooting Assistant")
 
 # Load troubleshooting data
 with open("troubleshooting.json", "r") as f:
@@ -29,7 +29,10 @@ if "awaiting_yes_no" not in st.session_state:
     st.session_state.awaiting_yes_no = False
 
 # Step 1: Ask which system
-system_choice = st.selectbox("Which system is the issue related to?", ["-- Select a system --", "KDS", "Kiosk Software", "POS"])
+system_choice = st.selectbox(
+    "Which system is the issue related to?",
+    ["-- Select a system --", "KDS", "Kiosk Software", "POS", "I'm not sure"]
+)
 if system_choice != "-- Select a system --":
     st.session_state.system_choice = system_choice
 
@@ -43,12 +46,12 @@ def get_match_label(score):
 
 # Step 2: If system chosen, ask for issue
 if st.session_state.system_choice:
-    user_input = st.text_input(f"Describe your issue with {st.session_state.system_choice}:")
+    user_input = st.text_input(f"Describe your issue ({st.session_state.system_choice}):")
 
     if user_input and not st.session_state.selected_problem:
         matches = []
         for entry in troubleshooting_data:
-            if entry["system"] == st.session_state.system_choice:
+            if st.session_state.system_choice == "I'm not sure" or entry["system"] == st.session_state.system_choice:
                 score_problem = fuzz.partial_ratio(user_input.lower(), entry["problem"].lower())
                 score_try = fuzz.partial_ratio(user_input.lower(), entry["what_to_try_first"].lower())
                 score = max(score_problem, score_try)
