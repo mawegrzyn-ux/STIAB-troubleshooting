@@ -14,7 +14,15 @@ st.title("🤖 AI Troubleshooting Assistant")
 with open("troubleshooting.json", "r") as f:
     troubleshooting_data = json.load(f)
 
-user_input = st.text_input("Describe your issue:")
+# Initialize session state for chat
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "candidates" not in st.session_state:
+    st.session_state.candidates = []
+if "current_index" not in st.session_state:
+    st.session_state.current_index = 0
+
+user_input = st.text_input("Describe your issue or answer the assistant:")
 
 def get_match_label(score):
     if score >= 80:
@@ -25,55 +33,57 @@ def get_match_label(score):
         return "Possible Match"
 
 if user_input:
-    # Fuzzy search
-    best_matches = []
-    for entry in troubleshooting_data:
-        score_problem = fuzz.partial_ratio(user_input.lower(), entry["problem"].lower())
-        score_try = fuzz.partial_ratio(user_input.lower(), entry["what_to_try_first"].lower())
-        score = max(score_problem, score_try)
-        if score > 50:  # lowered threshold for better matching
-            best_matches.append((score, entry))
-    
-    # Sort by best score
-    best_matches.sort(reverse=True, key=lambda x: x[0])
-
-    if best_matches:
-        st.subheader("🔍 Possible Matches")
+    # If no candidates yet, find matches
+    if not st.session_state.candidates:
+        matches = []
+        for entry in troubleshooting_data:
+            score_problem = fuzz.partial_ratio(user_input.lower(), entry["problem"].lower())
+            score_try = fuzz.partial_ratio(user_input.lower(), entry["what_to_try_first"].lower())
+            score = max(score_problem, score_try)
+            if score > 50:
+                matches.append((score, entry))
         
-        # Show up to 3 matches
-        top_matches = best_matches[:3]
+        matches.sort(reverse=True, key=lambda x: x[0])
+        st.session_state.candidates = matches[:3]  # keep top 3
+        st.session_state.current_index = 0
 
-        for idx, (score, match) in enumerate(top_matches, start=1):
-            context = (
-                f"System: {match['system']}\n"
-                f"Problem: {match['problem']}\n"
-                f"What to Try First: {match['what_to_try_first']}\n"
-                f"When to Call Support: {match['when_to_call_support']}\n"
-            )
-
-            # Ask GPT to explain
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": (
-                            "You are a helpful IT troubleshooting assistant. "
-                            "Base your answer only on the troubleshooting entry provided below. "
-                            "If it doesn’t exactly match the user’s problem, give the closest advice you can from the guide. "
-                            "If the guide does not cover the issue, say: 'This issue is not covered. Please contact support.'"
-                        )
-                    },
-                    {"role": "user", "content": f"My issue: {user_input}"},
-                    {"role": "assistant", "content": f"Troubleshooting entry:\n{context}"}
-                ],
-                max_tokens=300
-            )
-
+        if st.session_state.candidates:
+            score, entry = st.session_state.candidates[0]
             match_label = get_match_label(score)
+            context = (
+                f"System: {entry['system']}\n"
+                f"Problem: {entry['problem']}\n"
+                f"What to Try First: {entry['what_to_try_first']}\n"
+                f"When to Call Support: {entry['when_to_call_support']}\n"
+            )
 
-            st.markdown(f"### {idx}. {match['problem']} ({match_label})")
-            st.write(response.choices[0].message.content)
-            st.markdown("---")
+            st.session_state.chat_history.append(
+                {"role": "assistant", "content": f"I found a {match_label}: {entry['problem']}. {entry['what_to_try_first']} Did that help?"}
+            )
+            st.session_state.chat_history.append({"role": "context", "content": context})
+        else:
+            st.session_state.chat_history.append(
+                {"role": "assistant", "content": "I couldn’t find anything close in the troubleshooting guide. Please contact support."}
+            )
     else:
-        st.warning("No close matches found in the troubleshooting database.")
+        # Use existing context and conversation
+        context = st.session_state.chat_history[-1]["content"] if st.session_state.chat_history[-1]["role"] == "context" else st.session_state.chat_history[-2]["content"]
+
+        # Continue with GPT
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful IT troubleshooting assistant. Use the troubleshooting entry provided below. If the user says the fix didn’t work, try the next best match from the candidates list. If none work, say: 'Please contact support.'"},
+                {"role": "assistant", "content": f"Troubleshooting entry:\n{context}"},
+                {"role": "user", "content": user_input}
+            ],
+            max_tokens=300
+        )
+        answer = response.choices[0].message.content
+        st.session_state.chat_history.append({"role": "assistant", "content": answer})
+
+        # Detect if user said it didn’t work
+        if user_input.strip().lower() in ["no", "didn't work", "does not work", "nope"]:
+            st.session_state.current_index += 1
+            if st.session_state.current_index < len(st.session_state.candidates):
+                score, entry = st.session_state.candidates[st.session_state.current_index]
