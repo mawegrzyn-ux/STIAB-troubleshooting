@@ -1,6 +1,7 @@
 {
   "English": {
     "ui": {
+      "title": "STIAB Assistant",
       "system_label": "Which system is the issue related to?",
       "issue_placeholder": "Describe your issue",
       "suggestions_label": "Do any of these match your issue?",
@@ -15,6 +16,7 @@
   },
   "French": {
     "ui": {
+      "title": "Assistant STIAB",
       "system_label": "À quel système le problème est-il lié ?",
       "issue_placeholder": "Décrivez votre problème",
       "suggestions_label": "L’un de ces problèmes correspond-il au vôtre ?",
@@ -29,6 +31,7 @@
   },
   "Dutch": {
     "ui": {
+      "title": "STIAB Assistent",
       "system_label": "Met welk systeem heeft het probleem te maken?",
       "issue_placeholder": "Beschrijf uw probleem",
       "suggestions_label": "Komt een van deze overeen met uw probleem?",
@@ -43,6 +46,7 @@
   },
   "Spanish": {
     "ui": {
+      "title": "Asistente STIAB",
       "system_label": "¿Con qué sistema está relacionado el problema?",
       "issue_placeholder": "Describe tu problema",
       "suggestions_label": "¿Coincide alguno de estos con tu problema?",
@@ -57,6 +61,7 @@
   },
   "Italian": {
     "ui": {
+      "title": "Assistente STIAB",
       "system_label": "A quale sistema è relativo il problema?",
       "issue_placeholder": "Descrivi il tuo problema",
       "suggestions_label": "Uno di questi corrisponde al tuo problema?",
@@ -71,6 +76,7 @@
   },
   "German": {
     "ui": {
+      "title": "STIAB Assistent",
       "system_label": "Mit welchem System hängt das Problem zusammen?",
       "issue_placeholder": "Beschreiben Sie Ihr Problem",
       "suggestions_label": "Passt eines dieser Probleme zu Ihrem?",
