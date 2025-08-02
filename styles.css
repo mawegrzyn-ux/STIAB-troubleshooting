@@ -1,11 +1,16 @@
-/* Make Streamlit button row scrollable */
+/* Scrollable flag bar */
 div[data-testid="stHorizontalBlock"] {
     display: flex;
+    flex-wrap: nowrap;
     overflow-x: auto;
     gap: 0.5em;
+    margin-bottom: 1em;
+    padding: 0.2em 0;
 }
 
+/* Style flag buttons */
 button[kind="primary"] {
-    font-size: 1.8em;
+    font-size: 2em;
     padding: 0.2em 0.5em;
+    flex: 0 0 auto; /* prevents wrapping */
 }
