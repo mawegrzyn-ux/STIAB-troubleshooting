@@ -16,6 +16,14 @@ with open("troubleshooting.json", "r") as f:
 
 user_input = st.text_input("Describe your issue:")
 
+def get_match_label(score):
+    if score >= 80:
+        return "Best Match"
+    elif score >= 65:
+        return "Good Match"
+    else:
+        return "Possible Match"
+
 if user_input:
     # Fuzzy search
     best_matches = []
@@ -62,7 +70,9 @@ if user_input:
                 max_tokens=300
             )
 
-            st.markdown(f"### {idx}. {match['problem']} ({score}% match)")
+            match_label = get_match_label(score)
+
+            st.markdown(f"### {idx}. {match['problem']} ({match_label})")
             st.write(response.choices[0].message.content)
             st.markdown("---")
     else:
