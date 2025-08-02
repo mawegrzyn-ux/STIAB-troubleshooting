@@ -6,6 +6,7 @@
 - [Epics](#-epics)  
 - [User Stories](#-user-stories)  
 - [Iteration History & Changes](#-iteration-history--changes)  
+- [Change Log](#-change-log)  
 - [User Flow Diagram](#-user-flow-diagram)  
 - [Next Planned Iterations](#-next-planned-iterations)  
 
@@ -28,6 +29,7 @@ It combines a **searchable troubleshooting knowledge base** with an **interactiv
 - Conversational responses powered by GPT.  
 - Follow‑up questions with Yes/No buttons.  
 - JSON‑based troubleshooting knowledge base.  
+- Multilingual support for English, French, Dutch, Spanish, Italian, and German.  
 
 **Out of Scope**  
 - Automatic remote fixes.  
@@ -104,19 +106,13 @@ It combines a **searchable troubleshooting knowledge base** with an **interactiv
   - After resolution, ask “Was this explanation clear?” 👍 👎  
   - Store feedback for review and guide content updates.  
 
-### Epic 11: Multilingual Support [Future Epic]  
+### Epic 11: Multilingual Support  
 - **Goal:** Support EMEA staff in their local languages.  
 - **Features:**  
   - Allow users to select language at start.  
   - GPT provides troubleshooting responses in the chosen language.  
   - Localize buttons and static text.  
-
-### Epic 12: Mobile‑Friendly Experience [Future Epic]  
-- **Goal:** Optimize for tablets and small devices.  
-- **Features:**  
-  - Large, touch‑friendly buttons.  
-  - Minimized typing.  
-  - Adaptive layout for small screens.  
+  - Translate user queries into English for matching.  
 
 ---
 
@@ -124,7 +120,7 @@ It combines a **searchable troubleshooting knowledge base** with an **interactiv
 
 **As a store staff member:**  
 1. I want to **choose my system** (or say *I’m not sure*) so I don’t get irrelevant answers.  
-2. I want to **type my issue** in my own words so I don’t have to know technical terms.  
+2. I want to **type my issue in my own words** so I don’t have to know technical terms.  
 3. I want the app to **suggest possible problems** so I can pick the closest one.  
 4. I want the app to **show the system name in suggestions when I pick “I’m not sure.”**  
 5. I want GPT to **explain the fix in plain language** so I can understand it.  
@@ -135,6 +131,8 @@ It combines a **searchable troubleshooting knowledge base** with an **interactiv
 10. I want to **see immediate quick fixes** before GPT finishes its answer.  
 11. I want the app to **be easy to use on a tablet** with minimal typing.  
 12. I want the option to **get help in my own language** when working across EMEA.  
+13. I want the **whole UI translated** into my chosen language so I don’t see any English.  
+14. I want to **type my problem in my own language** and still get relevant answers.  
 
 ---
 
@@ -174,19 +172,56 @@ It combines a **searchable troubleshooting knowledge base** with an **interactiv
 - When the user selects *“I’m not sure”*, each suggested problem now includes its **system name** (e.g., `POS - Receipt printer won’t print after payment`).  
 - System name also displayed in GPT’s response header.  
 
+### Iteration 8 — Multilingual Support  
+- Implemented language selector (English, French, Dutch, Spanish, Italian, German).  
+- GPT responses localized to chosen language.  
+
+### Iteration 9 — Localized Buttons  
+- Yes/No buttons and success/error messages translated into the selected language.  
+
+### Iteration 17 — Full UI Translation & Native Language Input  
+- Entire app UI (labels, placeholders, warnings) translated dynamically.  
+- User input translated into English for fuzzy matching.  
+- GPT responses returned in the user’s chosen language.  
+
+---
+
+## 📌 Change Log  
+
+| Date       | Iteration | Status | Change Summary |
+|------------|-----------|--------|----------------|
+| 2025-07-30 | Iteration 1 | ✅ Done | Initial MVP with keyword search and troubleshooting JSON. |
+| 2025-07-31 | Iteration 2 | ✅ Done | Added GPT conversational guidance. |
+| 2025-08-01 | Iteration 3 | ✅ Done | Improved fuzzy matching (lower threshold, multiple matches, quality labels). |
+| 2025-08-01 | Iteration 4 | ✅ Done | Added Yes/No confirmation buttons and fallback logic. |
+| 2025-08-01 | Iteration 5 | ✅ Done | Added dropdown with top 3–5 suggestions. |
+| 2025-08-01 | Iteration 6 | ✅ Done | Added system selection with “I’m not sure.” |
+| 2025-08-02 | Iteration 7 | ✅ Done | Added system name in suggestions when “I’m not sure.” |
+| 2025-08-02 | Iteration 8 | ✅ Done | Added multilingual support (6 languages). |
+| 2025-08-02 | Iteration 9 | ✅ Done | Localized Yes/No buttons and system messages. |
+| 2025-08-02 | Iteration 17 | ✅ Done | Full UI translation & native language input support. |
+| 2025-08-02 | Iteration 10 | 🔜 Planned | Add colored badges for systems. |
+| 2025-08-02 | Iteration 11 | 🔜 Planned | Add progressive disclosure with a step tracker. |
+| 2025-08-02 | Iteration 12 | 🔜 Planned | Add dynamic problem categories. |
+| 2025-08-02 | Iteration 13 | 🔜 Planned | Show instant quick fixes before GPT completes explanation. |
+| 2025-08-02 | Iteration 14 | 🔜 Planned | Add feedback mechanism (thumbs up/down). |
+| 2025-08-02 | Iteration 15 | 🔜 Planned | Mobile optimization. |
+| 2025-08-02 | Iteration 16 | 🔜 Planned | Support escalation button with pre-filled ticket. |
+
 ---
 
 ## 📊 User Flow Diagram  
 
 ```mermaid
 flowchart TD
-    A[User Opens App] --> B[Select System: KDS / Kiosk / POS / I'm not sure]
-    B --> C[Describe Issue]
-    C --> D{Fuzzy Match Suggests Top 3-5 Problems}
-    D --> E[User Selects Problem]
-    E --> F[GPT Explains Fix]
-    F --> G{Did it work?}
-    G -->|Yes| H[Show Success Message]
-    G -->|No| I[Try Next Best Match]
-    I --> F
-    I -->|If none left| J[Advise Contact Support]
+    A[User Opens App] --> B[Select Language]
+    B --> C[Select System: KDS / Kiosk / POS / I'm not sure]
+    C --> D[Describe Issue (in any supported language)]
+    D --> E{Fuzzy Match Suggests Top 3-5 Problems}
+    E --> F[User Selects Problem]
+    F --> G[GPT Explains Fix in User's Language]
+    G --> H{Did it work?}
+    H -->|Yes| I[Show Success Message]
+    H -->|No| J[Try Next Best Match]
+    J --> F
+    J -->|If none left| K[Advise Contact Support]
