@@ -6,6 +6,8 @@ from rapidfuzz import fuzz
 from openai import OpenAI
 from streamlit_webrtc import webrtc_streamer
 import av
+import soundfile as sf
+import numpy as np
 
 # -------------------
 # Setup
@@ -184,8 +186,10 @@ if st.session_state.system_choice:
     if webrtc_ctx.audio_receiver:
         audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
         if audio_frames:
+            # Combine audio frames into array
+            audio_data = np.concatenate([f.to_ndarray().flatten() for f in audio_frames])
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-                audio_frames[0].to_soundfile(tmpfile.name)
+                sf.write(tmpfile.name, audio_data, audio_frames[0].sample_rate)
                 st.audio(tmpfile.name)
                 with open(tmpfile.name, "rb") as audio_file:
                     transcript = client.audio.transcriptions.create(
