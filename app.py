@@ -1,26 +1,58 @@
 import streamlit as st
 import json
+import os
+from rapidfuzz import fuzz
+from openai import OpenAI
 
-st.title("🛠 AI Troubleshooting Assistant")
+# -------------------
+# Setup OpenAI
+# -------------------
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+st.title("🤖 AI Troubleshooting Assistant")
 
 # Load troubleshooting data
 with open("troubleshooting.json", "r") as f:
     troubleshooting_data = json.load(f)
 
-# Ask user for their issue
 user_input = st.text_input("Describe your issue:")
 
 if user_input:
-    results = []
+    # Fuzzy search
+    best_matches = []
     for entry in troubleshooting_data:
-        if user_input.lower() in entry["problem"].lower() or user_input.lower() in entry["what_to_try_first"].lower():
-            results.append(entry)
+        score_problem = fuzz.partial_ratio(user_input.lower(), entry["problem"].lower())
+        score_try = fuzz.partial_ratio(user_input.lower(), entry["what_to_try_first"].lower())
+        score = max(score_problem, score_try)
+        if score > 60:  # threshold for match
+            best_matches.append((score, entry))
+    
+    best_matches.sort(reverse=True, key=lambda x: x[0])
 
-    if results:
-        for r in results:
-            st.subheader(f"{r['system']} Issue: {r['problem']}")
-            st.write(f"**What to Try First:** {r['what_to_try_first']}")
-            st.write(f"**When to Call Support:** {r['when_to_call_support']}")
-            st.markdown("---")
+    if best_matches:
+        top_entry = best_matches[0][1]
+
+        # Build context for GPT
+        context = (
+            f"System: {top_entry['system']}\n"
+            f"Problem: {top_entry['problem']}\n"
+            f"What to Try First: {top_entry['what_to_try_first']}\n"
+            f"When to Call Support: {top_entry['when_to_call_support']}\n"
+        )
+
+        # Send to GPT
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful IT troubleshooting assistant."},
+                {"role": "user", "content": f"My issue: {user_input}"},
+                {"role": "assistant", "content": f"Here are the troubleshooting steps:\n{context}"}
+            ],
+            max_tokens=300
+        )
+
+        st.subheader("💡 Suggested Solution")
+        st.write(response.choices[0].message.content)
+
     else:
-        st.warning("No matching problem found in the database.")
+        st.warning("No close matches found in the troubleshooting database.")
