@@ -190,17 +190,17 @@ if st.session_state.system_choice:
 
     webrtc_ctx = webrtc_streamer(
         key="speech",
-        mode="sendonly",
+        mode="sendrecv",
         rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
         audio_processor_factory=AudioProcessor,
         media_stream_constraints={"audio": True, "video": False},
     )
 
-    if webrtc_ctx and webrtc_ctx.audio_processor:
+    if webrtc_ctx and webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
         if st.button("Stop & Transcribe"):
             audio_data = np.concatenate(webrtc_ctx.audio_processor.buffer)
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-                sf.write(tmpfile.name, audio_data, 48000)
+                sf.write(tmpfile.name, audio_data, 48000)  # assume 48kHz
                 st.audio(tmpfile.name)
                 with open(tmpfile.name, "rb") as audio_file:
                     transcript = client.audio.transcriptions.create(
