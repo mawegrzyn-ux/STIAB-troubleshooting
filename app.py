@@ -3,15 +3,27 @@ import json
 from rapidfuzz import fuzz
 from openai import OpenAI
 
+# -------------------
 # Setup OpenAI
+# -------------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 st.set_page_config(page_title="AI Troubleshooting Assistant", layout="centered")
 
-# Load translations from file
+# -------------------
+# Load external CSS
+# -------------------
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+local_css("styles.css")
+
+# -------------------
+# Load translations
+# -------------------
 with open("translations.json", "r") as f:
     translations_data = json.load(f)
 
-# Supported languages with flags
 languages = {
     "🇬🇧": "English",
     "🇫🇷": "French",
@@ -25,20 +37,25 @@ languages = {
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
 
-# Flag buttons above title
+# Flag buttons bar
 cols = st.columns(len(languages))
 for idx, (flag, lang) in enumerate(languages.items()):
-    if cols[idx].button(flag):
-        st.session_state.selected_language = lang
+    with cols[idx]:
+        if st.button(flag, key=f"lang_{flag}"):
+            st.session_state.selected_language = lang
 
 selected_language = st.session_state.selected_language
 ui_local = translations_data[selected_language]["ui"]
 local_text = translations_data[selected_language]["buttons"]
 
-# Show app title AFTER language selection
+# -------------------
+# Page Title
+# -------------------
 st.title("🤖 AI Troubleshooting Assistant")
 
-# Load troubleshooting data
+# -------------------
+# Load troubleshooting database
+# -------------------
 with open("troubleshooting.json", "r") as f:
     troubleshooting_data = json.load(f)
 
@@ -54,7 +71,9 @@ if "selected_problem" not in st.session_state:
 if "awaiting_yes_no" not in st.session_state:
     st.session_state.awaiting_yes_no = False
 
-# Step 1: System selection
+# -------------------
+# System Selection
+# -------------------
 system_choice = st.selectbox(
     ui_local["system_label"],
     ["-- Select a system --", "KDS", "Kiosk Software", "POS", "I'm not sure"]
@@ -70,12 +89,14 @@ def get_match_label(score):
     else:
         return "Possible Match"
 
-# Step 2: Issue input
+# -------------------
+# Issue Input
+# -------------------
 if st.session_state.system_choice:
     user_input = st.text_input(ui_local["issue_placeholder"])
 
     if user_input and not st.session_state.selected_problem:
-        # Translate input to English for fuzzy match
+        # Translate user input to English for matching
         translation = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -117,7 +138,9 @@ if st.session_state.system_choice:
         else:
             st.warning(ui_local["no_results"])
 
-# Step 3: Show GPT answer
+# -------------------
+# GPT Answer
+# -------------------
 if st.session_state.selected_problem:
     chosen_entry = next(entry for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
     score = next(score for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
@@ -146,7 +169,9 @@ if st.session_state.selected_problem:
 
     st.session_state.awaiting_yes_no = True
 
-# Step 4: Yes/No buttons
+# -------------------
+# Yes / No Buttons
+# -------------------
 if st.session_state.awaiting_yes_no:
     col1, col2 = st.columns(2)
     with col1:
