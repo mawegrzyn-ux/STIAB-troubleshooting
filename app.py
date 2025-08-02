@@ -10,7 +10,7 @@ from openai import OpenAI
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 st.set_page_config(page_title="STIAB Assistant", layout="centered")
 
-# Load CSS
+# Load CSS (unchanged)
 def local_css(file_name):
     if os.path.exists(file_name):
         with open(file_name) as f:
@@ -123,74 +123,33 @@ ui_local = translations_data.get(selected_language, translations_data["English"]
 local_text = translations_data.get(selected_language, translations_data["English"])["buttons"]
 
 # -------------------
-# Sticky World Icon & Popup Modal
+# Toggleable Language Selector
 # -------------------
-st.markdown("""
-    <style>
-    .lang-button {
-        position: fixed;
-        top: 10px;
-        right: 20px;
-        z-index: 9999;
-        background-color: white;
-        border: 1px solid #ccc;
-        border-radius: 50%;
-        padding: 8px;
-        cursor: pointer;
-    }
-    .modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.5);
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .modal-content {
-        background: white;
-        padding: 20px;
-        border-radius: 10px;
-        width: 300px;
-        text-align: center;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
+# World icon toggle button
 if st.button("🌐", key="lang_btn"):
-    st.session_state.show_lang_popup = True
+    st.session_state.show_lang_popup = not st.session_state.show_lang_popup
 
 if st.session_state.show_lang_popup:
-    st.markdown('<div class="modal"></div>', unsafe_allow_html=True)
-    with st.container():
-        st.markdown('<div class="modal-content">', unsafe_allow_html=True)
+    flags = {
+        "English": "🇬🇧",
+        "French": "🇫🇷",
+        "Dutch": "🇳🇱",
+        "Spanish": "🇪🇸",
+        "Italian": "🇮🇹",
+        "German": "🇩🇪"
+    }
 
-        flags = {
-            "English": "🇬🇧",
-            "French": "🇫🇷",
-            "Dutch": "🇳🇱",
-            "Spanish": "🇪🇸",
-            "Italian": "🇮🇹",
-            "German": "🇩🇪"
-        }
+    selected_popup_lang = st.radio(
+        "Choose your language",
+        options=list(flags.keys()),
+        format_func=lambda lang: f"{flags[lang]} {lang}",
+        index=list(flags.keys()).index(st.session_state.selected_language)
+    )
 
-        selected_popup_lang = st.radio(
-            "Choose language",
-            options=list(flags.keys()),
-            format_func=lambda lang: f"{flags[lang]} {lang}",
-            index=list(flags.keys()).index(st.session_state.selected_language),
-            label_visibility="collapsed"
-        )
-
-        if st.button("Confirm"):
-            st.session_state.selected_language = selected_popup_lang
-            st.session_state.show_lang_popup = False
-            st.rerun()
-
-        st.markdown('</div>', unsafe_allow_html=True)
+    if st.button("Confirm"):
+        st.session_state.selected_language = selected_popup_lang
+        st.session_state.show_lang_popup = False
+        st.rerun()
 
 # -------------------
 # App Title
@@ -214,7 +173,6 @@ if st.session_state.system_choice:
     user_input = st.text_input(ui_local["issue_placeholder"])
 
     if user_input:
-        # Translate input for matching
         translation = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -257,7 +215,6 @@ if st.session_state.system_choice:
                 chosen_entry = st.session_state.candidates[chosen_idx][1]
                 st.session_state.selected_problem = chosen_entry["problem"]
 
-                # 🚀 Trigger GPT immediately
                 score = st.session_state.candidates[chosen_idx][0]
                 match_label = get_match_label(score)
 
