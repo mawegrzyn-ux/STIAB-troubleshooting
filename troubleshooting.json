@@ -1,0 +1,20 @@
+[
+  {
+    "system": "KDS",
+    "problem": "Screen is blank / won’t turn on",
+    "what_to_try_first": "Make sure the power cable is firmly plugged in. Check if the outlet works (try another device). Press the power button on the screen. If using a power strip, make sure it’s switched on.",
+    "when_to_call_support": "If the screen still doesn’t turn on."
+  },
+  {
+    "system": "Kiosk Software",
+    "problem": "Kiosk keeps restarting to Windows sign-in screen",
+    "what_to_try_first": "Log in as kiosk admin. Navigate to C:\\QikServe\\programs\\sysinternals-auto-login. Run Autologon.exe, enter 'KioskUser' and password, click 'Enable' twice. Reboot to check if it now logs in correctly. (help.qikserve.com)",
+    "when_to_call_support": "If the kiosk still drops to sign-in screen after reboot."
+  },
+  {
+    "system": "POS",
+    "problem": "Receipt printer won’t print after payment",
+    "what_to_try_first": "Make sure printer is on and has paper. Check that the receipt printer is the one selected on screen. Restart the POS terminal.",
+    "when_to_call_support": "If printer still won’t print."
+  }
+]
