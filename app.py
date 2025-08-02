@@ -40,19 +40,8 @@ if user_input:
             f"When to Call Support: {top_entry['when_to_call_support']}\n"
         )
 
-        # Send to GPT
+        # Send to GPT with strict instructions
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful IT troubleshooting assistant."},
-                {"role": "user", "content": f"My issue: {user_input}"},
-                {"role": "assistant", "content": f"Here are the troubleshooting steps:\n{context}"}
-            ],
-            max_tokens=300
-        )
-
-        st.subheader("💡 Suggested Solution")
-        st.write(response.choices[0].message.content)
-
-    else:
-        st.warning("No close matches found in the troubleshooting database.")
+                {"role": "system", "content": "You are a helpful IT troubleshooting assistant. Only use the information provided in the troubleshooting guide. If the answer is not in the
