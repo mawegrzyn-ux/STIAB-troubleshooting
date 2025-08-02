@@ -4,7 +4,7 @@ import os
 import tempfile
 from rapidfuzz import fuzz
 from openai import OpenAI
-from streamlit_webrtc import webrtc_streamer
+from st_audiorec import st_audiorec
 
 # -------------------
 # Setup
@@ -171,29 +171,20 @@ if st.session_state.system_choice:
 
     # Option 2: Voice input
     st.markdown("🎤 Or speak your issue below:")
+    wav_audio_data = st_audiorec()
 
-    webrtc_ctx = webrtc_streamer(
-        key="speech",
-        mode="sendonly",
-        audio_receiver_size=1024,
-        media_stream_constraints={"audio": True, "video": False},
-    )
+    if wav_audio_data is not None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+            tmpfile.write(wav_audio_data)
+            st.audio(tmpfile.name)
 
-    if webrtc_ctx.audio_receiver:
-        audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
-        if audio_frames:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-                audio_frames[0].to_soundfile(tmpfile.name)
-                st.audio(tmpfile.name)
-                audio_path = tmpfile.name
-                with open(audio_path, "rb") as audio_file:
-                    transcript = client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=audio_file
-                    )
-
-                    st.success(f"🎤 Transcribed: {transcript.text}")
-                    user_input = transcript.text  # override input with voice text
+            with open(tmpfile.name, "rb") as audio_file:
+                transcript = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file
+                )
+                st.success(f"🎤 Transcribed: {transcript.text}")
+                user_input = transcript.text
 
     # -------------------
     # Run fuzzy search if input is available
