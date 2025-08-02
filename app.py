@@ -44,4 +44,15 @@ if user_input:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful IT troubleshooting assistant. Only use the information provided in the troubleshooting guide. If the answer is not in the
+                {"role": "system", "content": "You are a helpful IT troubleshooting assistant. Only use the information provided in the troubleshooting guide. If the answer is not in the guide, say: 'I don’t know. Please contact support.' Do not make up answers."},
+                {"role": "user", "content": f"My issue: {user_input}"},
+                {"role": "assistant", "content": f"Troubleshooting guide:\n{context}"}
+            ],
+            max_tokens=300
+        )
+
+        st.subheader("💡 Suggested Solution")
+        st.write(response.choices[0].message.content)
+
+    else:
+        st.warning("No close matches found in the troubleshooting database.")
