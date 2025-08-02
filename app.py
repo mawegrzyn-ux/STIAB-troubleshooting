@@ -77,7 +77,7 @@ def get_match_label(score):
 if st.session_state.system_choice:
     user_input = st.text_input(ui_local["issue_placeholder"])
 
-    if user_input and not st.session_state.selected_problem:
+    if user_input:
         # Translate input for matching
         translation = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -107,7 +107,11 @@ if st.session_state.system_choice:
             else:
                 problem_choices = [m[1]["problem"] for m in st.session_state.candidates]
 
-            selected_problem = st.selectbox(ui_local["suggestions_label"], ["-- Select a problem --"] + problem_choices)
+            selected_problem = st.selectbox(
+                ui_local["suggestions_label"],
+                ["-- Select a problem --"] + problem_choices,
+                key="problem_selector"
+            )
 
             if selected_problem != "-- Select a problem --":
                 if st.session_state.system_choice == "I'm not sure":
@@ -116,40 +120,44 @@ if st.session_state.system_choice:
                     problem_text = selected_problem
 
                 st.session_state.selected_problem = problem_text
-                st.rerun()
+
+                # 🚀 Trigger GPT immediately
+                chosen_entry = next(
+                    entry for score, entry in st.session_state.candidates
+                    if entry["problem"] == st.session_state.selected_problem
+                )
+                score = next(
+                    score for score, entry in st.session_state.candidates
+                    if entry["problem"] == st.session_state.selected_problem
+                )
+                match_label = get_match_label(score)
+
+                context = (
+                    f"System: {chosen_entry['system']}\n"
+                    f"Problem: {chosen_entry['problem']}\n"
+                    f"What to Try First: {chosen_entry['what_to_try_first']}\n"
+                    f"When to Call Support: {chosen_entry['when_to_call_support']}\n"
+                )
+
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": f"You are a helpful IT troubleshooting assistant. Respond only in {selected_language}."},
+                        {"role": "user", "content": f"My issue: {user_input}"},
+                        {"role": "assistant", "content": f"Troubleshooting entry:\n{context}"}
+                    ],
+                    max_tokens=300
+                )
+                answer = response.choices[0].message.content
+
+                st.subheader(f"{match_label}: {chosen_entry['problem']} ({chosen_entry['system']})")
+                st.write(answer)
+
+                st.session_state.awaiting_yes_no = True
         else:
             st.warning(ui_local["no_results"])
 
-# Step 3: Show GPT answer
-if st.session_state.selected_problem:
-    chosen_entry = next(entry for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
-    score = next(score for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
-    match_label = get_match_label(score)
-
-    context = (
-        f"System: {chosen_entry['system']}\n"
-        f"Problem: {chosen_entry['problem']}\n"
-        f"What to Try First: {chosen_entry['what_to_try_first']}\n"
-        f"When to Call Support: {chosen_entry['when_to_call_support']}\n"
-    )
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": f"You are a helpful IT troubleshooting assistant. Respond only in {selected_language}."},
-            {"role": "user", "content": f"My issue: {user_input}"},
-            {"role": "assistant", "content": f"Troubleshooting entry:\n{context}"}
-        ],
-        max_tokens=300
-    )
-    answer = response.choices[0].message.content
-
-    st.subheader(f"{match_label}: {chosen_entry['problem']} ({chosen_entry['system']})")
-    st.write(answer)
-
-    st.session_state.awaiting_yes_no = True
-
-# Step 4: Yes/No buttons
+# Step 3: Yes/No buttons
 if st.session_state.awaiting_yes_no:
     col1, col2 = st.columns(2)
     with col1:
