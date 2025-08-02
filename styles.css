@@ -1,5 +1,4 @@
-/* Scrollable flag bar */
-div[data-testid="stHorizontalBlock"] {
+.flag-bar {
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -8,9 +7,11 @@ div[data-testid="stHorizontalBlock"] {
     padding: 0.2em 0;
 }
 
-/* Style flag buttons */
-button[kind="primary"] {
+.flag-btn {
     font-size: 2em;
-    padding: 0.2em 0.5em;
-    flex: 0 0 auto; /* prevents wrapping */
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    padding: 0.2em 0.4em;
+    flex: 0 0 auto; /* Prevent full width */
 }
