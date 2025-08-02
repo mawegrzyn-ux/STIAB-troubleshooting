@@ -313,8 +313,4 @@ if st.session_state.get("problem_translations"):
     except Exception as e:
         st.error(f"⚠️ Could not save translation cache: {e}")
 
-# -------------------
-# Debugging Option
-# -------------------
-if st.checkbox("Show Translation Cache Debug"):
-    st.json(st.session_state.problem_translations)
+
