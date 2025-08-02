@@ -10,6 +10,16 @@ from openai import OpenAI
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 st.set_page_config(page_title="STIAB Assistant", layout="centered")
 
+# -------------------
+# Load Custom CSS
+# -------------------
+def local_css(file_name):
+    if os.path.exists(file_name):
+        with open(file_name) as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+local_css("styles.css")
+
 def load_json_safe(file_path, default_data):
     if os.path.exists(file_path):
         try:
