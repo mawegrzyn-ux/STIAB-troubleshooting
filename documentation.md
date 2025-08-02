@@ -215,11 +215,11 @@ It combines a **searchable troubleshooting knowledge base** with an **interactiv
 ```mermaid
 flowchart TD
     A[User Opens App] --> B[Select Language]
-    B --> C[Select System: KDS / Kiosk / POS / I'm not sure]
-    C --> D[Describe Issue (in any supported language)]
+    B --> C[Select System: KDS / Kiosk / POS / Not sure]
+    C --> D[Describe Issue in chosen language]
     D --> E{Fuzzy Match Suggests Top 3-5 Problems}
     E --> F[User Selects Problem]
-    F --> G[GPT Explains Fix in User's Language]
+    F --> G[GPT Explains Fix in chosen language]
     G --> H{Did it work?}
     H -->|Yes| I[Show Success Message]
     H -->|No| J[Try Next Best Match]
