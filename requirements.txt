@@ -3,3 +3,5 @@ openai
 rapidfuzz
 streamlit-webrtc
 av
+soundfile
+numpy
