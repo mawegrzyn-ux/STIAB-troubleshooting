@@ -1,20 +1,11 @@
-/* Horizontal flag bar */
-.flag-bar {
+/* Make Streamlit button row scrollable */
+div[data-testid="stHorizontalBlock"] {
     display: flex;
     overflow-x: auto;
     gap: 0.5em;
-    margin-bottom: 1em;
-    padding: 0.3em;
 }
 
-.flag-btn {
-    font-size: 2em;       /* Make flags large for touch screens */
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    padding: 0.2em 0.4em;
-}
-
-.flag-btn:hover {
-    transform: scale(1.2);
+button[kind="primary"] {
+    font-size: 1.8em;
+    padding: 0.2em 0.5em;
 }
