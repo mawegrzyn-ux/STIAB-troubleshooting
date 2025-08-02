@@ -21,6 +21,8 @@ if "candidates" not in st.session_state:
     st.session_state.candidates = []
 if "current_index" not in st.session_state:
     st.session_state.current_index = 0
+if "selected_problem" not in st.session_state:
+    st.session_state.selected_problem = None
 if "awaiting_yes_no" not in st.session_state:
     st.session_state.awaiting_yes_no = False
 
@@ -34,81 +36,79 @@ def get_match_label(score):
     else:
         return "Possible Match"
 
-if user_input and not st.session_state.awaiting_yes_no:
-    # Store user input
-    st.session_state.chat_history.append({"role": "user", "content": user_input})
+# Step 1: If user typed an issue and hasn’t selected a problem yet
+if user_input and not st.session_state.selected_problem:
+    matches = []
+    for entry in troubleshooting_data:
+        score_problem = fuzz.partial_ratio(user_input.lower(), entry["problem"].lower())
+        score_try = fuzz.partial_ratio(user_input.lower(), entry["what_to_try_first"].lower())
+        score = max(score_problem, score_try)
+        if score > 50:
+            matches.append((score, entry))
 
-    # If no candidates yet, search for matches
-    if not st.session_state.candidates:
-        matches = []
-        for entry in troubleshooting_data:
-            score_problem = fuzz.partial_ratio(user_input.lower(), entry["problem"].lower())
-            score_try = fuzz.partial_ratio(user_input.lower(), entry["what_to_try_first"].lower())
-            score = max(score_problem, score_try)
-            if score > 50:
-                matches.append((score, entry))
-        
-        matches.sort(reverse=True, key=lambda x: x[0])
-        st.session_state.candidates = matches[:3]
-        st.session_state.current_index = 0
+    matches.sort(reverse=True, key=lambda x: x[0])
+    st.session_state.candidates = matches[:5]
 
-        if st.session_state.candidates:
-            score, entry = st.session_state.candidates[0]
-            match_label = get_match_label(score)
-            context = (
-                f"System: {entry['system']}\n"
-                f"Problem: {entry['problem']}\n"
-                f"What to Try First: {entry['what_to_try_first']}\n"
-                f"When to Call Support: {entry['when_to_call_support']}\n"
-            )
-            st.session_state.chat_history.append(
-                {"role": "assistant", "content": f"I found a {match_label}: {entry['problem']}.\n{entry['what_to_try_first']}\n\nDid that help?"}
-            )
-            st.session_state.chat_history.append({"role": "context", "content": context})
-            st.session_state.awaiting_yes_no = True
-        else:
-            st.session_state.chat_history.append(
-                {"role": "assistant", "content": "I couldn’t find anything close in the troubleshooting guide. Please contact support."}
-            )
+    if st.session_state.candidates:
+        problem_choices = [m[1]["problem"] for m in st.session_state.candidates]
+        selected_problem = st.selectbox("Do any of these match your issue?", ["-- Select a problem --"] + problem_choices)
 
-# Render chat history
-for chat in st.session_state.chat_history:
-    if chat["role"] == "assistant":
-        st.markdown(f"**Assistant:** {chat['content']}")
-    elif chat["role"] == "user":
-        st.markdown(f"**You:** {chat['content']}")
+        if selected_problem != "-- Select a problem --":
+            st.session_state.selected_problem = selected_problem
+            st.rerun()
+    else:
+        st.warning("No similar problems found in the database.")
 
-# Show Yes/No buttons if assistant is waiting
+# Step 2: If a problem was selected
+if st.session_state.selected_problem:
+    chosen_entry = next(entry for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
+    score = next(score for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
+    match_label = get_match_label(score)
+
+    context = (
+        f"System: {chosen_entry['system']}\n"
+        f"Problem: {chosen_entry['problem']}\n"
+        f"What to Try First: {chosen_entry['what_to_try_first']}\n"
+        f"When to Call Support: {chosen_entry['when_to_call_support']}\n"
+    )
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful IT troubleshooting assistant. Base your answer only on the troubleshooting entry provided. If it doesn’t exactly match the user’s problem, give the closest advice you can from the guide. If not covered, say: 'Please contact support.'"},
+            {"role": "user", "content": f"My issue: {user_input}"},
+            {"role": "assistant", "content": f"Troubleshooting entry:\n{context}"}
+        ],
+        max_tokens=300
+    )
+    answer = response.choices[0].message.content
+
+    st.subheader(f"{match_label}: {chosen_entry['problem']}")
+    st.write(answer)
+
+    st.session_state.awaiting_yes_no = True
+
+# Step 3: Show Yes/No buttons if needed
 if st.session_state.awaiting_yes_no:
     col1, col2 = st.columns(2)
     with col1:
         if st.button("✅ Yes, it worked"):
-            st.session_state.chat_history.append({"role": "user", "content": "Yes"})
-            st.session_state.chat_history.append({"role": "assistant", "content": "Great to hear that solved your problem! 🎉"})
+            st.success("Great to hear that solved your problem! 🎉")
             st.session_state.awaiting_yes_no = False
+            st.session_state.selected_problem = None
             st.session_state.candidates = []
             st.session_state.current_index = 0
             st.rerun()
     with col2:
         if st.button("❌ No, still an issue"):
-            st.session_state.chat_history.append({"role": "user", "content": "No"})
             st.session_state.current_index += 1
             if st.session_state.current_index < len(st.session_state.candidates):
-                score, entry = st.session_state.candidates[st.session_state.current_index]
-                match_label = get_match_label(score)
-                context = (
-                    f"System: {entry['system']}\n"
-                    f"Problem: {entry['problem']}\n"
-                    f"What to Try First: {entry['what_to_try_first']}\n"
-                    f"When to Call Support: {entry['when_to_call_support']}\n"
-                )
-                st.session_state.chat_history.append(
-                    {"role": "assistant", "content": f"Okay, let’s try another suggestion.\nI found a {match_label}: {entry['problem']}.\n{entry['what_to_try_first']}\n\nDid that help?"}
-                )
-                st.session_state.chat_history.append({"role": "context", "content": context})
+                next_score, next_entry = st.session_state.candidates[st.session_state.current_index]
+                st.session_state.selected_problem = next_entry["problem"]
+                st.rerun()
             else:
-                st.session_state.chat_history.append(
-                    {"role": "assistant", "content": "I’ve run out of suggestions from the guide. Please contact support."}
-                )
+                st.error("I’ve run out of suggestions from the guide. Please contact support.")
                 st.session_state.awaiting_yes_no = False
-            st.rerun()
+                st.session_state.selected_problem = None
+                st.session_state.candidates = []
+                st.session_state.current_index = 0
