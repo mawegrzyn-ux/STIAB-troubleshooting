@@ -1,0 +1,16 @@
+/* Language flag bar */
+.flag-container {
+    display: flex;
+    overflow-x: auto;
+    padding: 0.5em 0;
+}
+.flag-container button {
+    margin-right: 0.5em;
+    flex: 0 0 auto;
+}
+
+/* Optional: make flag buttons bigger for touch screens */
+button[kind="primary"] {
+    font-size: 1.5em;
+    padding: 0.3em 0.6em;
+}
