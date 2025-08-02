@@ -259,7 +259,6 @@ if st.session_state.system_choice:
                 st.session_state.awaiting_yes_no = True
         else:
             st.warning(ui_local.get("no_results", "No matching problems found."))
-
 # -------------------
 # Step 3: Yes/No Buttons
 # -------------------
