@@ -124,7 +124,7 @@ ui_local = translations_data.get(selected_language, translations_data["English"]
 local_text = translations_data.get(selected_language, translations_data["English"])["buttons"]
 
 # -------------------
-# Sticky World Icon & Popup
+# Sticky World Icon & Popup Modal
 # -------------------
 st.markdown("""
     <style>
@@ -167,11 +167,19 @@ if st.button("🌐", key="lang_btn"):
 if st.session_state.show_lang_popup:
     st.markdown('<div class="modal"><div class="modal-content">', unsafe_allow_html=True)
     st.write("Select your language")
-    for lang in languages:
-        if st.button(lang):
-            st.session_state.selected_language = lang
-            st.session_state.show_lang_popup = False
-            st.rerun()
+
+    selected_popup_lang = st.radio(
+        "Choose language",
+        options=languages,
+        index=languages.index(st.session_state.selected_language),
+        label_visibility="collapsed"
+    )
+
+    if st.button("Confirm"):
+        st.session_state.selected_language = selected_popup_lang
+        st.session_state.show_lang_popup = False
+        st.rerun()
+
     st.markdown('</div></div>', unsafe_allow_html=True)
 
 # -------------------
