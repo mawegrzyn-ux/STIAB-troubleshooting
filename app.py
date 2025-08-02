@@ -7,12 +7,13 @@ st.title("🛠 AI Troubleshooting Assistant")
 with open("troubleshooting.json", "r") as f:
     troubleshooting_data = json.load(f)
 
+# Ask user for their issue
 user_input = st.text_input("Describe your issue:")
 
 if user_input:
     results = []
     for entry in troubleshooting_data:
-        if user_input.lower() in entry["problem"].lower():
+        if user_input.lower() in entry["problem"].lower() or user_input.lower() in entry["what_to_try_first"].lower():
             results.append(entry)
 
     if results:
