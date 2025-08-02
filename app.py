@@ -2,12 +2,12 @@ import streamlit as st
 import json
 import os
 import tempfile
+import numpy as np
+import soundfile as sf
 from rapidfuzz import fuzz
 from openai import OpenAI
-from streamlit_webrtc import webrtc_streamer
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, RTCConfiguration
 import av
-import soundfile as sf
-import numpy as np
 
 # -------------------
 # Setup
@@ -75,6 +75,18 @@ def get_match_label(score):
         return "Good Match"
     else:
         return "Possible Match"
+
+# -------------------
+# Audio Processor
+# -------------------
+class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.buffer = []
+
+    def recv_audio(self, frame: av.AudioFrame) -> av.AudioFrame:
+        audio = frame.to_ndarray()
+        self.buffer.append(audio)
+        return frame
 
 # -------------------
 # Session State
@@ -173,23 +185,22 @@ if st.session_state.system_choice:
     # Option 1: Manual text input
     user_input = st.text_input("💬 Type your issue here")
 
-    # Option 2: Voice input
+    # Option 2: Voice input with WebRTC
     st.markdown("🎤 Or record your issue below:")
 
     webrtc_ctx = webrtc_streamer(
         key="speech",
         mode="sendonly",
-        audio_receiver_size=1024,
+        rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
+        audio_processor_factory=AudioProcessor,
         media_stream_constraints={"audio": True, "video": False},
     )
 
-    if webrtc_ctx.audio_receiver:
-        audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
-        if audio_frames:
-            # Combine audio frames into array
-            audio_data = np.concatenate([f.to_ndarray().flatten() for f in audio_frames])
+    if webrtc_ctx and webrtc_ctx.audio_processor:
+        if st.button("Stop & Transcribe"):
+            audio_data = np.concatenate(webrtc_ctx.audio_processor.buffer)
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-                sf.write(tmpfile.name, audio_data, audio_frames[0].sample_rate)
+                sf.write(tmpfile.name, audio_data, 48000)
                 st.audio(tmpfile.name)
                 with open(tmpfile.name, "rb") as audio_file:
                     transcript = client.audio.transcriptions.create(
