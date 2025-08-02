@@ -1,5 +1,6 @@
 import streamlit as st
 import json
+import os
 from rapidfuzz import fuzz
 from openai import OpenAI
 
@@ -44,6 +45,40 @@ st.title(ui_local["title"])
 # Load troubleshooting data
 with open("troubleshooting.json", "r") as f:
     troubleshooting_data = json.load(f)
+
+# Load problem translations cache
+cache_file = "problem_translations.json"
+if os.path.exists(cache_file):
+    with open(cache_file, "r") as f:
+        problem_translations = json.load(f)
+else:
+    problem_translations = {}
+
+def translate_problem(problem_text, lang):
+    # Return cached if available
+    if problem_text in problem_translations and lang in problem_translations[problem_text]:
+        return problem_translations[problem_text][lang]
+
+    # Otherwise translate using GPT
+    translation = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": f"Translate the following problem into {lang}. Return only the translated text."},
+            {"role": "user", "content": problem_text}
+        ],
+        max_tokens=100
+    )
+    translated_problem = translation.choices[0].message.content.strip()
+
+    # Save to cache
+    if problem_text not in problem_translations:
+        problem_translations[problem_text] = {}
+    problem_translations[problem_text][lang] = translated_problem
+
+    with open(cache_file, "w", encoding="utf-8") as f:
+        json.dump(problem_translations, f, indent=2, ensure_ascii=False)
+
+    return translated_problem
 
 # Init session state
 if "system_choice" not in st.session_state:
@@ -102,34 +137,33 @@ if st.session_state.system_choice:
         st.session_state.candidates = matches[:5]
 
         if st.session_state.candidates:
-            if st.session_state.system_choice == "I'm not sure":
-                problem_choices = [f"{m[1]['system']} - {m[1]['problem']}" for m in st.session_state.candidates]
-            else:
-                problem_choices = [m[1]["problem"] for m in st.session_state.candidates]
+            translated_choices = []
+            for score, entry in st.session_state.candidates:
+                translated_problem = translate_problem(entry["problem"], selected_language)
+                if st.session_state.system_choice == "I'm not sure":
+                    translated_choices.append(f"{entry['system']} - {translated_problem}")
+                else:
+                    translated_choices.append(translated_problem)
 
             selected_problem = st.selectbox(
                 ui_local["suggestions_label"],
-                ["-- Select a problem --"] + problem_choices,
+                ["-- Select a problem --"] + translated_choices,
                 key="problem_selector"
             )
 
             if selected_problem != "-- Select a problem --":
                 if st.session_state.system_choice == "I'm not sure":
-                    problem_text = selected_problem.split(" - ", 1)[1]
+                    # Extract back the original English problem
+                    chosen_idx = translated_choices.index(selected_problem)
+                    chosen_entry = st.session_state.candidates[chosen_idx][1]
                 else:
-                    problem_text = selected_problem
+                    chosen_idx = translated_choices.index(selected_problem)
+                    chosen_entry = st.session_state.candidates[chosen_idx][1]
 
-                st.session_state.selected_problem = problem_text
+                st.session_state.selected_problem = chosen_entry["problem"]
 
                 # 🚀 Trigger GPT immediately
-                chosen_entry = next(
-                    entry for score, entry in st.session_state.candidates
-                    if entry["problem"] == st.session_state.selected_problem
-                )
-                score = next(
-                    score for score, entry in st.session_state.candidates
-                    if entry["problem"] == st.session_state.selected_problem
-                )
+                score = st.session_state.candidates[chosen_idx][0]
                 match_label = get_match_label(score)
 
                 context = (
@@ -150,12 +184,13 @@ if st.session_state.system_choice:
                 )
                 answer = response.choices[0].message.content
 
-                st.subheader(f"{match_label}: {chosen_entry['problem']} ({chosen_entry['system']})")
+                st.subheader(f"{match_label}: {translate_problem(chosen_entry['problem'], selected_language)} ({chosen_entry['system']})")
                 st.write(answer)
 
                 st.session_state.awaiting_yes_no = True
         else:
             st.warning(ui_local["no_results"])
+
 # Step 3: Yes/No buttons
 if st.session_state.awaiting_yes_no:
     col1, col2 = st.columns(2)
