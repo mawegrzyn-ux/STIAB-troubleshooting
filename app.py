@@ -69,7 +69,6 @@ if "problem_translations" not in st.session_state:
 # Translation with Cache
 # -------------------
 def translate_problem(problem_text, lang):
-    """Translate a problem string into the target language, with caching."""
     translations = st.session_state.problem_translations
 
     if problem_text in translations and lang in translations[problem_text]:
@@ -165,22 +164,33 @@ if st.button("🌐", key="lang_btn"):
     st.session_state.show_lang_popup = True
 
 if st.session_state.show_lang_popup:
-    st.markdown('<div class="modal"><div class="modal-content">', unsafe_allow_html=True)
-    st.write("Select your language")
+    st.markdown('<div class="modal"></div>', unsafe_allow_html=True)
+    with st.container():
+        st.markdown('<div class="modal-content">', unsafe_allow_html=True)
 
-    selected_popup_lang = st.radio(
-        "Choose language",
-        options=languages,
-        index=languages.index(st.session_state.selected_language),
-        label_visibility="collapsed"
-    )
+        flags = {
+            "English": "🇬🇧",
+            "French": "🇫🇷",
+            "Dutch": "🇳🇱",
+            "Spanish": "🇪🇸",
+            "Italian": "🇮🇹",
+            "German": "🇩🇪"
+        }
 
-    if st.button("Confirm"):
-        st.session_state.selected_language = selected_popup_lang
-        st.session_state.show_lang_popup = False
-        st.rerun()
+        selected_popup_lang = st.radio(
+            "Choose language",
+            options=list(flags.keys()),
+            format_func=lambda lang: f"{flags[lang]} {lang}",
+            index=list(flags.keys()).index(st.session_state.selected_language),
+            label_visibility="collapsed"
+        )
 
-    st.markdown('</div></div>', unsafe_allow_html=True)
+        if st.button("Confirm"):
+            st.session_state.selected_language = selected_popup_lang
+            st.session_state.show_lang_popup = False
+            st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # -------------------
 # App Title
@@ -313,4 +323,8 @@ if st.session_state.get("problem_translations"):
     except Exception as e:
         st.error(f"⚠️ Could not save translation cache: {e}")
 
-
+# -------------------
+# Debugging Option
+# -------------------
+if st.checkbox("Show Translation Cache Debug"):
+    st.json(st.session_state.problem_translations)
