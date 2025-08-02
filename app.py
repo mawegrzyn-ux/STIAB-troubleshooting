@@ -17,8 +17,6 @@ with open("troubleshooting.json", "r") as f:
 # Initialize session state
 if "system_choice" not in st.session_state:
     st.session_state.system_choice = None
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
 if "candidates" not in st.session_state:
     st.session_state.candidates = []
 if "current_index" not in st.session_state:
@@ -62,11 +60,22 @@ if st.session_state.system_choice:
         st.session_state.candidates = matches[:5]
 
         if st.session_state.candidates:
-            problem_choices = [m[1]["problem"] for m in st.session_state.candidates]
+            # Show system name if user said "I'm not sure"
+            if st.session_state.system_choice == "I'm not sure":
+                problem_choices = [f"{m[1]['system']} - {m[1]['problem']}" for m in st.session_state.candidates]
+            else:
+                problem_choices = [m[1]["problem"] for m in st.session_state.candidates]
+
             selected_problem = st.selectbox("Do any of these match your issue?", ["-- Select a problem --"] + problem_choices)
 
             if selected_problem != "-- Select a problem --":
-                st.session_state.selected_problem = selected_problem
+                if st.session_state.system_choice == "I'm not sure":
+                    # Extract problem text after system prefix
+                    problem_text = selected_problem.split(" - ", 1)[1]
+                else:
+                    problem_text = selected_problem
+
+                st.session_state.selected_problem = problem_text
                 st.rerun()
         else:
             st.warning("No similar problems found in the database.")
@@ -95,7 +104,7 @@ if st.session_state.selected_problem:
     )
     answer = response.choices[0].message.content
 
-    st.subheader(f"{match_label}: {chosen_entry['problem']}")
+    st.subheader(f"{match_label}: {chosen_entry['problem']} ({chosen_entry['system']})")
     st.write(answer)
 
     st.session_state.awaiting_yes_no = True
