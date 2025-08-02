@@ -1,3 +1,4 @@
 streamlit
 openai
 rapidfuzz
+git+https://github.com/stefanrmmr/st-audiorec.git
