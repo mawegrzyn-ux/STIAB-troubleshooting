@@ -15,6 +15,8 @@ with open("troubleshooting.json", "r") as f:
     troubleshooting_data = json.load(f)
 
 # Initialize session state
+if "system_choice" not in st.session_state:
+    st.session_state.system_choice = None
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "candidates" not in st.session_state:
@@ -26,7 +28,10 @@ if "selected_problem" not in st.session_state:
 if "awaiting_yes_no" not in st.session_state:
     st.session_state.awaiting_yes_no = False
 
-user_input = st.text_input("Describe your issue:")
+# Step 1: Ask which system
+system_choice = st.selectbox("Which system is the issue related to?", ["-- Select a system --", "KDS", "Kiosk Software", "POS"])
+if system_choice != "-- Select a system --":
+    st.session_state.system_choice = system_choice
 
 def get_match_label(score):
     if score >= 80:
@@ -36,30 +41,34 @@ def get_match_label(score):
     else:
         return "Possible Match"
 
-# Step 1: If user typed an issue and hasn’t selected a problem yet
-if user_input and not st.session_state.selected_problem:
-    matches = []
-    for entry in troubleshooting_data:
-        score_problem = fuzz.partial_ratio(user_input.lower(), entry["problem"].lower())
-        score_try = fuzz.partial_ratio(user_input.lower(), entry["what_to_try_first"].lower())
-        score = max(score_problem, score_try)
-        if score > 50:
-            matches.append((score, entry))
+# Step 2: If system chosen, ask for issue
+if st.session_state.system_choice:
+    user_input = st.text_input(f"Describe your issue with {st.session_state.system_choice}:")
 
-    matches.sort(reverse=True, key=lambda x: x[0])
-    st.session_state.candidates = matches[:5]
+    if user_input and not st.session_state.selected_problem:
+        matches = []
+        for entry in troubleshooting_data:
+            if entry["system"] == st.session_state.system_choice:
+                score_problem = fuzz.partial_ratio(user_input.lower(), entry["problem"].lower())
+                score_try = fuzz.partial_ratio(user_input.lower(), entry["what_to_try_first"].lower())
+                score = max(score_problem, score_try)
+                if score > 50:
+                    matches.append((score, entry))
 
-    if st.session_state.candidates:
-        problem_choices = [m[1]["problem"] for m in st.session_state.candidates]
-        selected_problem = st.selectbox("Do any of these match your issue?", ["-- Select a problem --"] + problem_choices)
+        matches.sort(reverse=True, key=lambda x: x[0])
+        st.session_state.candidates = matches[:5]
 
-        if selected_problem != "-- Select a problem --":
-            st.session_state.selected_problem = selected_problem
-            st.rerun()
-    else:
-        st.warning("No similar problems found in the database.")
+        if st.session_state.candidates:
+            problem_choices = [m[1]["problem"] for m in st.session_state.candidates]
+            selected_problem = st.selectbox("Do any of these match your issue?", ["-- Select a problem --"] + problem_choices)
 
-# Step 2: If a problem was selected
+            if selected_problem != "-- Select a problem --":
+                st.session_state.selected_problem = selected_problem
+                st.rerun()
+        else:
+            st.warning("No similar problems found in the database.")
+
+# Step 3: If a problem was selected
 if st.session_state.selected_problem:
     chosen_entry = next(entry for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
     score = next(score for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
@@ -88,7 +97,7 @@ if st.session_state.selected_problem:
 
     st.session_state.awaiting_yes_no = True
 
-# Step 3: Show Yes/No buttons if needed
+# Step 4: Show Yes/No buttons if needed
 if st.session_state.awaiting_yes_no:
     col1, col2 = st.columns(2)
     with col1:
