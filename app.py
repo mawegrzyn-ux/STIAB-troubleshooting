@@ -8,17 +8,32 @@ from openai import OpenAI
 # -------------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
+st.set_page_config(page_title="AI Troubleshooting Assistant", layout="centered")
+
 st.title("🤖 AI Troubleshooting Assistant")
 
-# Language choices with flags
+# Supported languages with flags
 languages = {
-    "🇬🇧 English": "English",
-    "🇫🇷 French": "French",
-    "🇳🇱 Dutch": "Dutch",
-    "🇪🇸 Spanish": "Spanish",
-    "🇮🇹 Italian": "Italian",
-    "🇩🇪 German": "German"
+    "🇬🇧": "English",
+    "🇫🇷": "French",
+    "🇳🇱": "Dutch",
+    "🇪🇸": "Spanish",
+    "🇮🇹": "Italian",
+    "🇩🇪": "German"
 }
+
+# Default language
+if "selected_language" not in st.session_state:
+    st.session_state.selected_language = "English"
+
+# Flag buttons for language choice
+st.markdown("### 🌍 Select your language")
+cols = st.columns(len(languages))
+for idx, (flag, lang) in enumerate(languages.items()):
+    if cols[idx].button(flag):
+        st.session_state.selected_language = lang
+
+selected_language = st.session_state.selected_language
 
 # UI translations
 ui_text = {
@@ -100,11 +115,9 @@ translations = {
     }
 }
 
-# Ask user for preferred language
-lang_choice = st.selectbox("🌍 Select your language:", list(languages.keys()))
-selected_language = languages[lang_choice]
-local_text = translations[selected_language]
+# Apply translations
 ui_local = ui_text[selected_language]
+local_text = translations[selected_language]
 
 # Load troubleshooting data
 with open("troubleshooting.json", "r") as f:
