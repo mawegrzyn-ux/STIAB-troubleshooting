@@ -88,7 +88,7 @@ if st.session_state.awaiting_yes_no:
             st.session_state.awaiting_yes_no = False
             st.session_state.candidates = []
             st.session_state.current_index = 0
-            st.experimental_rerun()
+            st.rerun()
     with col2:
         if st.button("❌ No, still an issue"):
             st.session_state.chat_history.append({"role": "user", "content": "No"})
@@ -111,4 +111,4 @@ if st.session_state.awaiting_yes_no:
                     {"role": "assistant", "content": "I’ve run out of suggestions from the guide. Please contact support."}
                 )
                 st.session_state.awaiting_yes_no = False
-            st.experimental_rerun()
+            st.rerun()
