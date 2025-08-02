@@ -15,15 +15,8 @@ def local_css(file_name):
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 local_css("styles.css")
 
-# Languages with flags
-languages = {
-    "🇬🇧": "English",
-    "🇫🇷": "French",
-    "🇳🇱": "Dutch",
-    "🇪🇸": "Spanish",
-    "🇮🇹": "Italian",
-    "🇩🇪": "German"
-}
+# Supported languages
+languages = ["English", "French", "Dutch", "Spanish", "Italian", "German"]
 
 # Load translations
 with open("translations.json", "r") as f:
@@ -33,22 +26,13 @@ with open("translations.json", "r") as f:
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
 
-# Render flag bar with HTML forms (no wrapping, scrollable)
-flags_html = '<div class="flag-bar">'
-for flag, lang in languages.items():
-    flags_html += f"""
-        <form action="/" method="get" style="display:inline;">
-            <input type="hidden" name="lang" value="{lang}">
-            <button class="flag-btn" type="submit">{flag}</button>
-        </form>
-    """
-flags_html += "</div>"
-st.markdown(flags_html, unsafe_allow_html=True)
-
-# Capture language selection
-params = st.query_params
-if "lang" in params:
-    st.session_state.selected_language = params["lang"]
+# Language selector row with 🌐
+lang_container = st.container()
+with lang_container:
+    cols = st.columns([0.1, 0.9])
+    cols[0].markdown("🌐")
+    selected_lang = cols[1].selectbox("", languages, index=languages.index(st.session_state.selected_language))
+    st.session_state.selected_language = selected_lang
 
 selected_language = st.session_state.selected_language
 ui_local = translations_data[selected_language]["ui"]
