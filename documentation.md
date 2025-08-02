@@ -63,10 +63,60 @@ It combines a **searchable troubleshooting knowledge base** with an **interactiv
 
 ### Epic 4: Continuous Improvement  
 - **Goal:** Enable future learning from real usage.  
-- **Features (future iterations):**  
+- **Features:**  
   - Log Yes/No responses for reporting.  
   - Export logs to CSV or Google Sheets.  
   - Analytics dashboard for common issues.  
+
+### Epic 5: Progressive Disclosure of Steps [Future Epic]  
+- **Goal:** Simplify the user experience with a guided, step‑by‑step flow.  
+- **Features:**  
+  - Break the journey into clear steps (System → Issue → Suggestions → Confirmation).  
+  - Use progress indicators to reassure users.  
+
+### Epic 6: Dynamic Problem Categories [Future Epic]  
+- **Goal:** Make searching easier for non‑technical users.  
+- **Features:**  
+  - Present clickable categories for common issues per system.  
+  - Allow users to skip typing if their issue fits a category.  
+
+### Epic 7: Instant Quick Fixes [Future Epic]  
+- **Goal:** Reduce waiting time for answers.  
+- **Features:**  
+  - Show “What to Try First” steps instantly.  
+  - Let GPT expand with a conversational explanation in parallel.  
+
+### Epic 8: Escalation Flow [Future Epic]  
+- **Goal:** Help users get support when automation fails.  
+- **Features:**  
+  - Offer a “Contact Support” button after 2–3 failed attempts.  
+  - Pre‑fill ticket with issue details and steps already tried.  
+
+### Epic 9: Knowledge Base Fallback Search [Future Epic]  
+- **Goal:** Ensure no dead ends.  
+- **Features:**  
+  - If fuzzy matching finds nothing, run a broader keyword search across all systems.  
+  - Show closest related problems with lower match scores.  
+
+### Epic 10: Feedback Loop for Quality [Future Epic]  
+- **Goal:** Continuously improve content and AI explanations.  
+- **Features:**  
+  - After resolution, ask “Was this explanation clear?” 👍 👎  
+  - Store feedback for review and guide content updates.  
+
+### Epic 11: Multilingual Support [Future Epic]  
+- **Goal:** Support EMEA staff in their local languages.  
+- **Features:**  
+  - Allow users to select language at start.  
+  - GPT provides troubleshooting responses in the chosen language.  
+  - Localize buttons and static text.  
+
+### Epic 12: Mobile‑Friendly Experience [Future Epic]  
+- **Goal:** Optimize for tablets and small devices.  
+- **Features:**  
+  - Large, touch‑friendly buttons.  
+  - Minimized typing.  
+  - Adaptive layout for small screens.  
 
 ---
 
@@ -76,10 +126,15 @@ It combines a **searchable troubleshooting knowledge base** with an **interactiv
 1. I want to **choose my system** (or say *I’m not sure*) so I don’t get irrelevant answers.  
 2. I want to **type my issue** in my own words so I don’t have to know technical terms.  
 3. I want the app to **suggest possible problems** so I can pick the closest one.  
-4. I want GPT to **explain the fix in plain language** so I can understand it.  
-5. I want to **confirm if the fix worked** with a simple Yes/No button.  
-6. If the fix didn’t work, I want the app to **suggest another solution** without me starting over.  
-7. If no solutions work, I want the app to **tell me to contact support** instead of guessing.  
+4. I want the app to **show the system name in suggestions when I pick “I’m not sure.”**  
+5. I want GPT to **explain the fix in plain language** so I can understand it.  
+6. I want to **confirm if the fix worked** with a simple Yes/No button.  
+7. If the fix didn’t work, I want the app to **suggest another solution** without me starting over.  
+8. If no solutions work, I want the app to **tell me to contact support** instead of guessing.  
+9. I want the app to **show categories of common problems** so I can pick quickly.  
+10. I want to **see immediate quick fixes** before GPT finishes its answer.  
+11. I want the app to **be easy to use on a tablet** with minimal typing.  
+12. I want the option to **get help in my own language** when working across EMEA.  
 
 ---
 
@@ -114,6 +169,10 @@ It combines a **searchable troubleshooting knowledge base** with an **interactiv
 - Added **System choice** (KDS / Kiosk / POS).  
 - **“I’m not sure”** option searches all systems.  
 - Filtered matches by system when chosen.  
+
+### Iteration 7 — Show System in Suggestions  
+- When the user selects *“I’m not sure”*, each suggested problem now includes its **system name** (e.g., `POS - Receipt printer won’t print after payment`).  
+- System name also displayed in GPT’s response header.  
 
 ---
 
