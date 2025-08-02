@@ -1,8 +1,10 @@
 import streamlit as st
 import json
 import os
+import tempfile
 from rapidfuzz import fuzz
 from openai import OpenAI
+from streamlit_webrtc import webrtc_streamer
 
 # -------------------
 # Setup
@@ -20,6 +22,9 @@ def local_css(file_name):
 
 local_css("styles.css")
 
+# -------------------
+# JSON Loader
+# -------------------
 def load_json_safe(file_path, default_data):
     if os.path.exists(file_path):
         try:
@@ -38,6 +43,9 @@ troubleshooting_data = load_json_safe("troubleshooting.json", [])
 if "problem_translations" not in st.session_state:
     st.session_state.problem_translations = load_json_safe("problem_translations.json", {})
 
+# -------------------
+# Helpers
+# -------------------
 def translate_problem(problem_text, lang):
     translations = st.session_state.problem_translations
     if problem_text in translations and lang in translations[problem_text]:
@@ -153,11 +161,41 @@ if system_choice != "-- Select a system --":
         st.session_state.system_choice = system_choice
 
 # -------------------
-# Step 2: Issue Input
+# Step 2: Issue Input (Typing or Voice)
 # -------------------
 if st.session_state.system_choice:
-    user_input = st.text_input(ui_local.get("issue_placeholder", "Describe your issue"))
+    st.write(ui_local.get("issue_placeholder", "Describe your issue"))
 
+    # Option 1: Manual text input
+    user_input = st.text_input("💬 Type your issue here")
+
+    # Option 2: Voice input
+    st.markdown("🎤 Or speak your issue below:")
+
+    webrtc_ctx = webrtc_streamer(
+        key="speech",
+        mode="sendonly",
+        audio_receiver_size=1024,
+        media_stream_constraints={"audio": True, "video": False},
+    )
+
+    if webrtc_ctx.audio_receiver:
+        audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
+        if audio_frames:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+                audio_frames[0].to_soundfile(tmpfile.name)
+                st.audio(tmpfile.name)
+                with open(tmpfile.name, "rb") as audio_file:
+                    transcript = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file
+                    )
+                    st.success(f"🎤 Transcribed: {transcript.text}")
+                    user_input = transcript.text  # override input with voice text
+
+    # -------------------
+    # Run fuzzy search if input is available
+    # -------------------
     if user_input:
         translation = client.chat.completions.create(
             model="gpt-4o-mini",
