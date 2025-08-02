@@ -20,6 +20,46 @@ languages = {
     "🇩🇪 German": "German"
 }
 
+# UI translations
+ui_text = {
+    "English": {
+        "system_label": "Which system is the issue related to?",
+        "issue_placeholder": "Describe your issue",
+        "suggestions_label": "Do any of these match your issue?",
+        "no_results": "No similar problems found in the database."
+    },
+    "French": {
+        "system_label": "À quel système le problème est-il lié ?",
+        "issue_placeholder": "Décrivez votre problème",
+        "suggestions_label": "L’un de ces problèmes correspond-il au vôtre ?",
+        "no_results": "Aucun problème similaire trouvé dans la base de données."
+    },
+    "Dutch": {
+        "system_label": "Met welk systeem heeft het probleem te maken?",
+        "issue_placeholder": "Beschrijf uw probleem",
+        "suggestions_label": "Komt een van deze overeen met uw probleem?",
+        "no_results": "Geen soortgelijke problemen gevonden in de database."
+    },
+    "Spanish": {
+        "system_label": "¿Con qué sistema está relacionado el problema?",
+        "issue_placeholder": "Describe tu problema",
+        "suggestions_label": "¿Coincide alguno de estos con tu problema?",
+        "no_results": "No se encontraron problemas similares en la base de datos."
+    },
+    "Italian": {
+        "system_label": "A quale sistema è relativo il problema?",
+        "issue_placeholder": "Descrivi il tuo problema",
+        "suggestions_label": "Uno di questi corrisponde al tuo problema?",
+        "no_results": "Nessun problema simile trovato nel database."
+    },
+    "German": {
+        "system_label": "Mit welchem System hängt das Problem zusammen?",
+        "issue_placeholder": "Beschreiben Sie Ihr Problem",
+        "suggestions_label": "Passt eines dieser Probleme zu Ihrem?",
+        "no_results": "Keine ähnlichen Probleme in der Datenbank gefunden."
+    }
+}
+
 # Translations for buttons and messages
 translations = {
     "English": {
@@ -64,6 +104,7 @@ translations = {
 lang_choice = st.selectbox("🌍 Select your language:", list(languages.keys()))
 selected_language = languages[lang_choice]
 local_text = translations[selected_language]
+ui_local = ui_text[selected_language]
 
 # Load troubleshooting data
 with open("troubleshooting.json", "r") as f:
@@ -83,7 +124,7 @@ if "awaiting_yes_no" not in st.session_state:
 
 # Step 1: Ask which system
 system_choice = st.selectbox(
-    "Which system is the issue related to?",
+    ui_local["system_label"],
     ["-- Select a system --", "KDS", "Kiosk Software", "POS", "I'm not sure"]
 )
 if system_choice != "-- Select a system --":
@@ -99,14 +140,25 @@ def get_match_label(score):
 
 # Step 2: If system chosen, ask for issue
 if st.session_state.system_choice:
-    user_input = st.text_input(f"Describe your issue ({st.session_state.system_choice}):")
+    user_input = st.text_input(ui_local["issue_placeholder"])
 
     if user_input and not st.session_state.selected_problem:
+        # Translate user input to English for matching
+        translation = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": f"Translate this text from {selected_language} to English."},
+                {"role": "user", "content": user_input}
+            ],
+            max_tokens=100
+        )
+        translated_input = translation.choices[0].message.content
+
         matches = []
         for entry in troubleshooting_data:
             if st.session_state.system_choice == "I'm not sure" or entry["system"] == st.session_state.system_choice:
-                score_problem = fuzz.partial_ratio(user_input.lower(), entry["problem"].lower())
-                score_try = fuzz.partial_ratio(user_input.lower(), entry["what_to_try_first"].lower())
+                score_problem = fuzz.partial_ratio(translated_input.lower(), entry["problem"].lower())
+                score_try = fuzz.partial_ratio(translated_input.lower(), entry["what_to_try_first"].lower())
                 score = max(score_problem, score_try)
                 if score > 50:
                     matches.append((score, entry))
@@ -120,7 +172,7 @@ if st.session_state.system_choice:
             else:
                 problem_choices = [m[1]["problem"] for m in st.session_state.candidates]
 
-            selected_problem = st.selectbox("Do any of these match your issue?", ["-- Select a problem --"] + problem_choices)
+            selected_problem = st.selectbox(ui_local["suggestions_label"], ["-- Select a problem --"] + problem_choices)
 
             if selected_problem != "-- Select a problem --":
                 if st.session_state.system_choice == "I'm not sure":
@@ -131,7 +183,7 @@ if st.session_state.system_choice:
                 st.session_state.selected_problem = problem_text
                 st.rerun()
         else:
-            st.warning("No similar problems found in the database.")
+            st.warning(ui_local["no_results"])
 
 # Step 3: If a problem was selected
 if st.session_state.selected_problem:
