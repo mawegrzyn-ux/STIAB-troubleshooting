@@ -10,13 +10,16 @@ with open("troubleshooting.json", "r") as f:
 user_input = st.text_input("Describe your issue:")
 
 if user_input:
-    # Simple search (basic prototype, no AI yet)
+    results = []
     for entry in troubleshooting_data:
         if user_input.lower() in entry["problem"].lower():
-            st.write("### Problem Found:")
-            st.write(f"**Problem:** {entry['problem']}")
-            st.write(f"**Causes:** {entry['causes']}")
-            st.write(f"**Solution:** {entry['solution']}")
-            break
+            results.append(entry)
+
+    if results:
+        for r in results:
+            st.subheader(f"{r['system']} Issue: {r['problem']}")
+            st.write(f"**What to Try First:** {r['what_to_try_first']}")
+            st.write(f"**When to Call Support:** {r['when_to_call_support']}")
+            st.markdown("---")
     else:
         st.warning("No matching problem found in the database.")
