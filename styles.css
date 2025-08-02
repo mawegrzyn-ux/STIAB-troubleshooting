@@ -4,3 +4,14 @@
     margin-bottom: 1em;
     gap: 0.5em;
 }
+/* Use a clean sans-serif font for the whole app */
+html, body, [class*="css"] {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Slightly smaller title */
+h1 {
+    font-size: 1.8rem !important;
+    color: #0a4817 !important;
+    font-weight: 600 !important;
+}
