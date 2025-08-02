@@ -34,22 +34,11 @@ with open("translations.json", "r") as f:
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
 
-# Render flag bar with HTML
-flags_html = '<div class="flag-bar">'
-for flag, lang in languages.items():
-    flags_html += f"""
-    <a href="/?lang={lang}" style="text-decoration:none;">
-        <button class="flag-btn">{flag}</button>
-    </a>
-    """
-flags_html += "</div>"
-
-st.markdown(flags_html, unsafe_allow_html=True)
-
-# Capture language from query params
-params = st.query_params
-if "lang" in params:
-    st.session_state.selected_language = params["lang"]
+# Horizontal flag row with Streamlit buttons
+cols = st.columns(len(languages))
+for idx, (flag, lang) in enumerate(languages.items()):
+    if cols[idx].button(flag, key=f"lang_{lang}"):
+        st.session_state.selected_language = lang
 
 selected_language = st.session_state.selected_language
 ui_local = translations_data[selected_language]["ui"]
