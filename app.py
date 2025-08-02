@@ -156,7 +156,6 @@ if st.session_state.system_choice:
                 st.session_state.awaiting_yes_no = True
         else:
             st.warning(ui_local["no_results"])
-
 # Step 3: Yes/No buttons
 if st.session_state.awaiting_yes_no:
     col1, col2 = st.columns(2)
