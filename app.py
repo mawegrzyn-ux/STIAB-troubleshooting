@@ -10,70 +10,28 @@ from openai import OpenAI
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 st.set_page_config(page_title="STIAB Assistant", layout="centered")
 
-# Load CSS (unchanged)
-def local_css(file_name):
-    if os.path.exists(file_name):
-        with open(file_name) as f:
-            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-local_css("styles.css")
-
-# -------------------
-# Safe JSON Loader
-# -------------------
 def load_json_safe(file_path, default_data):
-    """Safely load a JSON file; return default if missing or invalid."""
     if os.path.exists(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read().strip()
                 if content:
                     return json.loads(content)
-                else:
-                    st.warning(f"⚠️ {file_path} is empty. Using defaults.")
         except json.JSONDecodeError:
-            st.warning(f"⚠️ {file_path} is invalid JSON. Using defaults.")
-    else:
-        st.warning(f"⚠️ {file_path} not found. Using defaults.")
+            st.warning(f"⚠️ {file_path} is invalid JSON.")
     return default_data
 
-# -------------------
-# Load Data
-# -------------------
 languages = ["English", "French", "Dutch", "Spanish", "Italian", "German"]
 
-translations_data = load_json_safe("translations.json", {
-    "English": {
-        "ui": {
-            "title": "STIAB Assistant",
-            "system_label": "Select a system",
-            "issue_placeholder": "Describe your issue",
-            "suggestions_label": "Possible issues",
-            "no_results": "No matching problems found."
-        },
-        "buttons": {
-            "yes": "Yes",
-            "no": "No",
-            "success": "Glad it worked!",
-            "error": "Please contact support."
-        }
-    }
-})
-
+translations_data = load_json_safe("translations.json", {})
 troubleshooting_data = load_json_safe("troubleshooting.json", [])
-
 if "problem_translations" not in st.session_state:
     st.session_state.problem_translations = load_json_safe("problem_translations.json", {})
 
-# -------------------
-# Translation with Cache
-# -------------------
 def translate_problem(problem_text, lang):
     translations = st.session_state.problem_translations
-
     if problem_text in translations and lang in translations[problem_text]:
         return translations[problem_text][lang]
-
     translation = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -83,13 +41,10 @@ def translate_problem(problem_text, lang):
         max_tokens=100
     )
     translated_problem = translation.choices[0].message.content.strip()
-
     if problem_text not in translations:
         translations[problem_text] = {}
     translations[problem_text][lang] = translated_problem
     st.session_state.problem_translations = translations
-
-    st.info(f"💾 Cached translation for '{problem_text}' in {lang}.")
     return translated_problem
 
 def get_match_label(score):
@@ -100,9 +55,6 @@ def get_match_label(score):
     else:
         return "Possible Match"
 
-# -------------------
-# Session State
-# -------------------
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
 if "system_choice" not in st.session_state:
@@ -123,9 +75,8 @@ ui_local = translations_data.get(selected_language, translations_data["English"]
 local_text = translations_data.get(selected_language, translations_data["English"])["buttons"]
 
 # -------------------
-# Toggleable Language Selector
+# Language toggle
 # -------------------
-# World icon toggle button
 if st.button("🌐", key="lang_btn"):
     st.session_state.show_lang_popup = not st.session_state.show_lang_popup
 
@@ -138,14 +89,12 @@ if st.session_state.show_lang_popup:
         "Italian": "🇮🇹",
         "German": "🇩🇪"
     }
-
     selected_popup_lang = st.radio(
         "Choose your language",
         options=list(flags.keys()),
         format_func=lambda lang: f"{flags[lang]} {lang}",
         index=list(flags.keys()).index(st.session_state.selected_language)
     )
-
     if st.button("Confirm"):
         st.session_state.selected_language = selected_popup_lang
         st.session_state.show_lang_popup = False
@@ -161,10 +110,14 @@ st.title(ui_local["title"])
 # -------------------
 system_choice = st.selectbox(
     ui_local["system_label"],
-    ["-- Select a system --", "KDS", "Kiosk Software", "POS", "I'm not sure"]
+    ["-- Select a system --", "KDS", "Kiosk Software", "POS", ui_local["not_sure"]]
 )
+
 if system_choice != "-- Select a system --":
-    st.session_state.system_choice = system_choice
+    if system_choice == ui_local["not_sure"]:
+        st.session_state.system_choice = "I'm not sure"
+    else:
+        st.session_state.system_choice = system_choice
 
 # -------------------
 # Step 2: Issue Input
@@ -242,46 +195,3 @@ if st.session_state.system_choice:
                 st.session_state.awaiting_yes_no = True
         else:
             st.warning(ui_local["no_results"])
-
-# -------------------
-# Step 3: Yes/No Buttons
-# -------------------
-if st.session_state.awaiting_yes_no:
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button(local_text["yes"]):
-            st.success(local_text["success"])
-            st.session_state.awaiting_yes_no = False
-            st.session_state.selected_problem = None
-            st.session_state.candidates = []
-            st.session_state.current_index = 0
-            st.rerun()
-    with col2:
-        if st.button(local_text["no"]):
-            st.session_state.current_index += 1
-            if st.session_state.current_index < len(st.session_state.candidates):
-                next_score, next_entry = st.session_state.candidates[st.session_state.current_index]
-                st.session_state.selected_problem = next_entry["problem"]
-                st.rerun()
-            else:
-                st.error(local_text["error"])
-                st.session_state.awaiting_yes_no = False
-                st.session_state.selected_problem = None
-                st.session_state.candidates = []
-                st.session_state.current_index = 0
-
-# -------------------
-# Save Translation Cache to File
-# -------------------
-if st.session_state.get("problem_translations"):
-    try:
-        with open("problem_translations.json", "w", encoding="utf-8") as f:
-            json.dump(st.session_state.problem_translations, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        st.error(f"⚠️ Could not save translation cache: {e}")
-
-# -------------------
-# Debugging Option
-# -------------------
-if st.checkbox("Show Translation Cache Debug"):
-    st.json(st.session_state.problem_translations)
