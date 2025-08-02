@@ -4,7 +4,6 @@ import os
 import tempfile
 from rapidfuzz import fuzz
 from openai import OpenAI
-from st_audiorec import st_audiorec
 
 # -------------------
 # Setup
@@ -161,7 +160,7 @@ if system_choice != "-- Select a system --":
         st.session_state.system_choice = system_choice
 
 # -------------------
-# Step 2: Issue Input (Typing or Voice)
+# Step 2: Issue Input (Typing or Voice Upload)
 # -------------------
 if st.session_state.system_choice:
     st.write(ui_local.get("issue_placeholder", "Describe your issue"))
@@ -169,19 +168,19 @@ if st.session_state.system_choice:
     # Option 1: Manual text input
     user_input = st.text_input("💬 Type your issue here")
 
-    # Option 2: Voice input
-    st.markdown("🎤 Or speak your issue below:")
-    wav_audio_data = st_audiorec()
+    # Option 2: Voice file upload
+    st.markdown("🎤 Or upload a voice recording:")
+    audio_file = st.file_uploader("Upload audio", type=["wav", "mp3", "m4a"])
 
-    if wav_audio_data is not None:
+    if audio_file is not None:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-            tmpfile.write(wav_audio_data)
+            tmpfile.write(audio_file.read())
             st.audio(tmpfile.name)
 
-            with open(tmpfile.name, "rb") as audio_file:
+            with open(tmpfile.name, "rb") as f:
                 transcript = client.audio.transcriptions.create(
                     model="whisper-1",
-                    file=audio_file
+                    file=f
                 )
                 st.success(f"🎤 Transcribed: {transcript.text}")
                 user_input = transcript.text
