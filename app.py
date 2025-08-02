@@ -4,7 +4,8 @@ import os
 import tempfile
 from rapidfuzz import fuzz
 from openai import OpenAI
-from st_audiorec import st_audiorec
+from streamlit_webrtc import webrtc_streamer
+import av
 
 # -------------------
 # Setup
@@ -163,6 +164,7 @@ if system_choice != "-- Select a system --":
 # -------------------
 # Step 2: Issue Input (Typing or Voice)
 # -------------------
+user_input = None
 if st.session_state.system_choice:
     st.write(ui_local.get("issue_placeholder", "Describe your issue"))
 
@@ -171,20 +173,27 @@ if st.session_state.system_choice:
 
     # Option 2: Voice input
     st.markdown("🎤 Or record your issue below:")
-    wav_audio_data = st_audiorec()
 
-    if wav_audio_data is not None:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-            tmpfile.write(wav_audio_data)
-            st.audio(tmpfile.name)
+    webrtc_ctx = webrtc_streamer(
+        key="speech",
+        mode="sendonly",
+        audio_receiver_size=1024,
+        media_stream_constraints={"audio": True, "video": False},
+    )
 
-            with open(tmpfile.name, "rb") as audio_file:
-                transcript = client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=audio_file
-                )
-                st.success(f"🎤 Transcribed: {transcript.text}")
-                user_input = transcript.text
+    if webrtc_ctx.audio_receiver:
+        audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
+        if audio_frames:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+                audio_frames[0].to_soundfile(tmpfile.name)
+                st.audio(tmpfile.name)
+                with open(tmpfile.name, "rb") as audio_file:
+                    transcript = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=audio_file
+                    )
+                    st.success(f"🎤 Transcribed: {transcript.text}")
+                    user_input = transcript.text
 
     # -------------------
     # Run fuzzy search if input is available
@@ -259,6 +268,7 @@ if st.session_state.system_choice:
                 st.session_state.awaiting_yes_no = True
         else:
             st.warning(ui_local.get("no_results", "No matching problems found."))
+
 # -------------------
 # Step 3: Yes/No Buttons
 # -------------------
