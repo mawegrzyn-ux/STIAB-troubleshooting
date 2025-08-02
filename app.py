@@ -7,7 +7,7 @@ from openai import OpenAI
 # -------------------
 # Setup OpenAI
 # -------------------
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+client = OpenAI(api_key="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")
 
 st.title("🤖 AI Troubleshooting Assistant")
 
