@@ -3,14 +3,13 @@ import json
 from rapidfuzz import fuzz
 from openai import OpenAI
 
-# -------------------
 # Setup OpenAI
-# -------------------
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-
 st.set_page_config(page_title="AI Troubleshooting Assistant", layout="centered")
 
-st.title("🤖 AI Troubleshooting Assistant")
+# Load translations from file
+with open("translations.json", "r") as f:
+    translations_data = json.load(f)
 
 # Supported languages with flags
 languages = {
@@ -26,98 +25,18 @@ languages = {
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
 
-# Flag buttons for language choice
-st.markdown("### 🌍 Select your language")
+# Flag buttons above title
 cols = st.columns(len(languages))
 for idx, (flag, lang) in enumerate(languages.items()):
     if cols[idx].button(flag):
         st.session_state.selected_language = lang
 
 selected_language = st.session_state.selected_language
+ui_local = translations_data[selected_language]["ui"]
+local_text = translations_data[selected_language]["buttons"]
 
-# UI translations
-ui_text = {
-    "English": {
-        "system_label": "Which system is the issue related to?",
-        "issue_placeholder": "Describe your issue",
-        "suggestions_label": "Do any of these match your issue?",
-        "no_results": "No similar problems found in the database."
-    },
-    "French": {
-        "system_label": "À quel système le problème est-il lié ?",
-        "issue_placeholder": "Décrivez votre problème",
-        "suggestions_label": "L’un de ces problèmes correspond-il au vôtre ?",
-        "no_results": "Aucun problème similaire trouvé dans la base de données."
-    },
-    "Dutch": {
-        "system_label": "Met welk systeem heeft het probleem te maken?",
-        "issue_placeholder": "Beschrijf uw probleem",
-        "suggestions_label": "Komt een van deze overeen met uw probleem?",
-        "no_results": "Geen soortgelijke problemen gevonden in de database."
-    },
-    "Spanish": {
-        "system_label": "¿Con qué sistema está relacionado el problema?",
-        "issue_placeholder": "Describe tu problema",
-        "suggestions_label": "¿Coincide alguno de estos con tu problema?",
-        "no_results": "No se encontraron problemas similares en la base de datos."
-    },
-    "Italian": {
-        "system_label": "A quale sistema è relativo il problema?",
-        "issue_placeholder": "Descrivi il tuo problema",
-        "suggestions_label": "Uno di questi corrisponde al tuo problema?",
-        "no_results": "Nessun problema simile trovato nel database."
-    },
-    "German": {
-        "system_label": "Mit welchem System hängt das Problem zusammen?",
-        "issue_placeholder": "Beschreiben Sie Ihr Problem",
-        "suggestions_label": "Passt eines dieser Probleme zu Ihrem?",
-        "no_results": "Keine ähnlichen Probleme in der Datenbank gefunden."
-    }
-}
-
-# Translations for buttons and messages
-translations = {
-    "English": {
-        "yes": "✅ Yes, it worked",
-        "no": "❌ No, still an issue",
-        "success": "Great to hear that solved your problem! 🎉",
-        "error": "I’ve run out of suggestions from the guide. Please contact support."
-    },
-    "French": {
-        "yes": "✅ Oui, ça a marché",
-        "no": "❌ Non, j’ai encore un problème",
-        "success": "Ravi d’apprendre que cela a résolu votre problème ! 🎉",
-        "error": "Je n’ai plus de suggestions. Veuillez contacter le support."
-    },
-    "Dutch": {
-        "yes": "✅ Ja, het werkte",
-        "no": "❌ Nee, nog steeds een probleem",
-        "success": "Fijn om te horen dat het probleem is opgelost! 🎉",
-        "error": "Ik heb geen suggesties meer. Neem contact op met de ondersteuning."
-    },
-    "Spanish": {
-        "yes": "✅ Sí, funcionó",
-        "no": "❌ No, todavía hay un problema",
-        "success": "¡Me alegra saber que eso resolvió tu problema! 🎉",
-        "error": "Me he quedado sin sugerencias. Por favor, contacta con soporte."
-    },
-    "Italian": {
-        "yes": "✅ Sì, ha funzionato",
-        "no": "❌ No, c’è ancora un problema",
-        "success": "Felice di sapere che ha risolto il problema! 🎉",
-        "error": "Non ho più suggerimenti. Si prega di contattare l’assistenza."
-    },
-    "German": {
-        "yes": "✅ Ja, es hat funktioniert",
-        "no": "❌ Nein, immer noch ein Problem",
-        "success": "Schön zu hören, dass dein Problem gelöst wurde! 🎉",
-        "error": "Mir sind die Vorschläge ausgegangen. Bitte kontaktiere den Support."
-    }
-}
-
-# Apply translations
-ui_local = ui_text[selected_language]
-local_text = translations[selected_language]
+# Show app title AFTER language selection
+st.title("🤖 AI Troubleshooting Assistant")
 
 # Load troubleshooting data
 with open("troubleshooting.json", "r") as f:
@@ -135,7 +54,7 @@ if "selected_problem" not in st.session_state:
 if "awaiting_yes_no" not in st.session_state:
     st.session_state.awaiting_yes_no = False
 
-# Step 1: Ask which system
+# Step 1: System selection
 system_choice = st.selectbox(
     ui_local["system_label"],
     ["-- Select a system --", "KDS", "Kiosk Software", "POS", "I'm not sure"]
@@ -151,12 +70,12 @@ def get_match_label(score):
     else:
         return "Possible Match"
 
-# Step 2: If system chosen, ask for issue
+# Step 2: Issue input
 if st.session_state.system_choice:
     user_input = st.text_input(ui_local["issue_placeholder"])
 
     if user_input and not st.session_state.selected_problem:
-        # Translate user input to English for matching
+        # Translate input to English for fuzzy match
         translation = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -198,7 +117,7 @@ if st.session_state.system_choice:
         else:
             st.warning(ui_local["no_results"])
 
-# Step 3: If a problem was selected
+# Step 3: Show GPT answer
 if st.session_state.selected_problem:
     chosen_entry = next(entry for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
     score = next(score for score, entry in st.session_state.candidates if entry["problem"] == st.session_state.selected_problem)
@@ -227,7 +146,7 @@ if st.session_state.selected_problem:
 
     st.session_state.awaiting_yes_no = True
 
-# Step 4: Show Yes/No buttons in chosen language
+# Step 4: Yes/No buttons
 if st.session_state.awaiting_yes_no:
     col1, col2 = st.columns(2)
     with col1:
