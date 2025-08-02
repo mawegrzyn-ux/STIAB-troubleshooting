@@ -72,11 +72,9 @@ def translate_problem(problem_text, lang):
     """Translate a problem string into the target language, with caching."""
     translations = st.session_state.problem_translations
 
-    # Return cached if available
     if problem_text in translations and lang in translations[problem_text]:
         return translations[problem_text][lang]
 
-    # Otherwise translate using GPT
     translation = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -87,7 +85,6 @@ def translate_problem(problem_text, lang):
     )
     translated_problem = translation.choices[0].message.content.strip()
 
-    # Update cache
     if problem_text not in translations:
         translations[problem_text] = {}
     translations[problem_text][lang] = translated_problem
@@ -119,20 +116,63 @@ if "selected_problem" not in st.session_state:
     st.session_state.selected_problem = None
 if "awaiting_yes_no" not in st.session_state:
     st.session_state.awaiting_yes_no = False
-
-# -------------------
-# Language Selector
-# -------------------
-lang_container = st.container()
-with lang_container:
-    cols = st.columns([0.1, 0.9])
-    cols[0].markdown("🌐")
-    selected_lang = cols[1].selectbox("", languages, index=languages.index(st.session_state.selected_language))
-    st.session_state.selected_language = selected_lang
+if "show_lang_popup" not in st.session_state:
+    st.session_state.show_lang_popup = False
 
 selected_language = st.session_state.selected_language
 ui_local = translations_data.get(selected_language, translations_data["English"])["ui"]
 local_text = translations_data.get(selected_language, translations_data["English"])["buttons"]
+
+# -------------------
+# Sticky World Icon & Popup
+# -------------------
+st.markdown("""
+    <style>
+    .lang-button {
+        position: fixed;
+        top: 10px;
+        right: 20px;
+        z-index: 9999;
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 50%;
+        padding: 8px;
+        cursor: pointer;
+    }
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .modal-content {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        width: 300px;
+        text-align: center;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+if st.button("🌐", key="lang_btn"):
+    st.session_state.show_lang_popup = True
+
+if st.session_state.show_lang_popup:
+    st.markdown('<div class="modal"><div class="modal-content">', unsafe_allow_html=True)
+    st.write("Select your language")
+    for lang in languages:
+        if st.button(lang):
+            st.session_state.selected_language = lang
+            st.session_state.show_lang_popup = False
+            st.rerun()
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
 # -------------------
 # App Title
