@@ -1,4 +1,4 @@
 streamlit
 openai
 rapidfuzz
-git+https://github.com/stefanrmmr/streamlit-audio-recorder.git
+streamlit-webrtc
