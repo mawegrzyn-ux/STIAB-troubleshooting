@@ -185,11 +185,13 @@ if st.session_state.system_choice:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
                 audio_frames[0].to_soundfile(tmpfile.name)
                 st.audio(tmpfile.name)
-                with open(tmpfile.name, "rb") as audio_file:
+                audio_path = tmpfile.name
+                with open(audio_path, "rb") as audio_file:
                     transcript = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file
                     )
+
                     st.success(f"🎤 Transcribed: {transcript.text}")
                     user_input = transcript.text  # override input with voice text
 
