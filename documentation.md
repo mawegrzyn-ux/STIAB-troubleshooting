@@ -6,8 +6,8 @@
 - [Epics](#-epics)  
 - [User Stories](#-user-stories)  
 - [Iteration History & Changes](#-iteration-history--changes)  
+- [User Flow Diagram](#-user-flow-diagram)  
 - [Next Planned Iterations](#-next-planned-iterations)  
-- [Flowchart](#-flowchart)  
 
 ---
 
@@ -111,3 +111,23 @@ It combines a **searchable troubleshooting knowledge base** with an **interactiv
 - GPT explains selected problem’s fix.  
 
 ### Iteration 6 — System Selection  
+- Added **System choice** (KDS / Kiosk / POS).  
+- **“I’m not sure”** option searches all systems.  
+- Filtered matches by system when chosen.  
+
+---
+
+## 📊 User Flow Diagram  
+
+```mermaid
+flowchart TD
+    A[User Opens App] --> B[Select System<br/>(KDS / Kiosk / POS / I'm not sure)]
+    B --> C[Describe Issue (Text Input)]
+    C --> D{Fuzzy Match<br/>Suggest Top 3–5 Problems}
+    D --> E[User Selects Problem]
+    E --> F[GPT Explains Fix<br/>in Natural Language]
+    F --> G{Did it work?<br/>Yes / No Buttons}
+    G -->|Yes| H[Show Success Message 🎉]
+    G -->|No| I[Try Next Best Match]
+    I --> F
+    I -->|If none left| J[No More Matches<br/>Advise Contact Support]
