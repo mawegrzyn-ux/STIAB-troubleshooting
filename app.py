@@ -55,6 +55,9 @@ def get_match_label(score):
     else:
         return "Possible Match"
 
+# -------------------
+# Session State
+# -------------------
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
 if "system_choice" not in st.session_state:
@@ -71,8 +74,14 @@ if "show_lang_popup" not in st.session_state:
     st.session_state.show_lang_popup = False
 
 selected_language = st.session_state.selected_language
-ui_local = translations_data.get(selected_language, translations_data["English"])["ui"]
-local_text = translations_data.get(selected_language, translations_data["English"])["buttons"]
+
+# Safely load UI and buttons, fallback to English
+ui_local = translations_data.get(selected_language, translations_data.get("English", {})).get(
+    "ui", translations_data.get("English", {}).get("ui", {})
+)
+local_text = translations_data.get(selected_language, translations_data.get("English", {})).get(
+    "buttons", translations_data.get("English", {}).get("buttons", {})
+)
 
 # -------------------
 # Language toggle
@@ -103,18 +112,24 @@ if st.session_state.show_lang_popup:
 # -------------------
 # App Title
 # -------------------
-st.title(ui_local["title"])
+st.title(ui_local.get("title", "STIAB Assistant"))
 
 # -------------------
 # Step 1: System choice
 # -------------------
 system_choice = st.selectbox(
-    ui_local["system_label"],
-    ["-- Select a system --", "KDS", "Kiosk Software", "POS", ui_local["not_sure"]]
+    ui_local.get("system_label", "Select a system"),
+    [
+        "-- Select a system --",
+        "KDS",
+        "Kiosk Software",
+        "POS",
+        ui_local.get("not_sure", "I'm not sure"),
+    ]
 )
 
 if system_choice != "-- Select a system --":
-    if system_choice == ui_local["not_sure"]:
+    if system_choice == ui_local.get("not_sure", "I'm not sure"):
         st.session_state.system_choice = "I'm not sure"
     else:
         st.session_state.system_choice = system_choice
@@ -123,7 +138,7 @@ if system_choice != "-- Select a system --":
 # Step 2: Issue Input
 # -------------------
 if st.session_state.system_choice:
-    user_input = st.text_input(ui_local["issue_placeholder"])
+    user_input = st.text_input(ui_local.get("issue_placeholder", "Describe your issue"))
 
     if user_input:
         translation = client.chat.completions.create(
@@ -158,7 +173,7 @@ if st.session_state.system_choice:
                     translated_choices.append(translated_problem)
 
             selected_problem = st.selectbox(
-                ui_local["suggestions_label"],
+                ui_local.get("suggestions_label", "Possible issues"),
                 ["-- Select a problem --"] + translated_choices,
                 key="problem_selector"
             )
@@ -194,4 +209,31 @@ if st.session_state.system_choice:
 
                 st.session_state.awaiting_yes_no = True
         else:
-            st.warning(ui_local["no_results"])
+            st.warning(ui_local.get("no_results", "No matching problems found."))
+
+# -------------------
+# Step 3: Yes/No Buttons
+# -------------------
+if st.session_state.awaiting_yes_no:
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(local_text.get("yes", "Yes")):
+            st.success(local_text.get("success", "Glad it worked!"))
+            st.session_state.awaiting_yes_no = False
+            st.session_state.selected_problem = None
+            st.session_state.candidates = []
+            st.session_state.current_index = 0
+            st.rerun()
+    with col2:
+        if st.button(local_text.get("no", "No")):
+            st.session_state.current_index += 1
+            if st.session_state.current_index < len(st.session_state.candidates):
+                next_score, next_entry = st.session_state.candidates[st.session_state.current_index]
+                st.session_state.selected_problem = next_entry["problem"]
+                st.rerun()
+            else:
+                st.error(local_text.get("error", "Please contact support."))
+                st.session_state.awaiting_yes_no = False
+                st.session_state.selected_problem = None
+                st.session_state.candidates = []
+                st.session_state.current_index = 0
