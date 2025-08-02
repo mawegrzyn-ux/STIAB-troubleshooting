@@ -34,18 +34,19 @@ with open("translations.json", "r") as f:
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
 
-# Render flag bar
+# Render flag bar with HTML
 flags_html = '<div class="flag-bar">'
 for flag, lang in languages.items():
     flags_html += f"""
-    <a href="?lang={lang}" style="text-decoration:none;">
+    <a href="/?lang={lang}" style="text-decoration:none;">
         <button class="flag-btn">{flag}</button>
     </a>
     """
 flags_html += "</div>"
+
 st.markdown(flags_html, unsafe_allow_html=True)
 
-# Capture flag click via new query params API
+# Capture language from query params
 params = st.query_params
 if "lang" in params:
     st.session_state.selected_language = params["lang"]
