@@ -10,6 +10,9 @@ from openai import OpenAI
 st.set_page_config(page_title="STIAB Assistant", layout="centered")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
+# -------------------
+# JSON Loader
+# -------------------
 def load_json_safe(file_path, default_data):
     if os.path.exists(file_path):
         try:
@@ -41,8 +44,38 @@ for key, value in defaults.items():
         st.session_state[key] = value
 
 selected_language = st.session_state.selected_language
-ui_local = translations_data.get(selected_language, {}).get("ui", translations_data["English"]["ui"])
-local_text = translations_data.get(selected_language, {}).get("buttons", translations_data["English"]["buttons"])
+ui_local = translations_data.get(selected_language, {}).get("ui", translations_data.get("English", {}).get("ui", {}))
+local_text = translations_data.get(selected_language, {}).get("buttons", translations_data.get("English", {}).get("buttons", {}))
+
+# -------------------
+# Language toggle
+# -------------------
+if st.button("🌐", key="lang_btn"):
+    st.session_state.show_lang_popup = not st.session_state.show_lang_popup
+
+if st.session_state.show_lang_popup:
+    flags = {
+        "English": "🇬🇧",
+        "French": "🇫🇷",
+        "Dutch": "🇳🇱",
+        "Spanish": "🇪🇸",
+        "Italian": "🇮🇹",
+        "German": "🇩🇪"
+    }
+    selected_popup_lang = st.radio(
+        ui_local.get("choose_lang", "Choose your language"),
+        options=list(flags.keys()),
+        format_func=lambda lang: f"{flags[lang]} {lang}",
+        index=list(flags.keys()).index(st.session_state.selected_language)
+    )
+    if st.button(ui_local.get("confirm", "Confirm")):
+        st.session_state.selected_language = selected_popup_lang
+        st.session_state.show_lang_popup = False
+        for k in ["system_choice", "candidates", "selected_problem"]:
+            st.session_state[k] = None if k == "system_choice" else []
+        st.session_state.current_index = 0
+        st.session_state.awaiting_yes_no = False
+        st.rerun()
 
 # -------------------
 # App Title
@@ -68,14 +101,13 @@ if system_choice != "-- Select a system --":
     )
 
 # -------------------
-# Step 2: Issue Input + Spinner Placement
+# Step 2: Issue Input + Spinner
 # -------------------
 user_input = None
 if st.session_state.system_choice:
     st.write(ui_local.get("issue_placeholder", "Describe your issue"))
     user_input = st.text_input("💬 " + ui_local.get("text_input", "Type your issue here"))
 
-    # Spinner placeholder BELOW input
     spinner_placeholder = st.empty()
 
     if user_input:
@@ -103,10 +135,7 @@ if st.session_state.system_choice:
             st.session_state.candidates = matches[:5]
 
             if st.session_state.candidates:
-                translated_choices = []
-                for score, entry in st.session_state.candidates:
-                    translated_choices.append(entry["problem"])  # simplified for clarity
-
+                translated_choices = [entry["problem"] for _, entry in st.session_state.candidates]
                 selected_problem = st.selectbox(
                     ui_local.get("suggestions_label", "Possible issues"),
                     ["-- Select a problem --"] + translated_choices,
@@ -116,19 +145,54 @@ if st.session_state.system_choice:
                 if selected_problem != "-- Select a problem --":
                     chosen_idx = translated_choices.index(selected_problem)
                     chosen_entry = st.session_state.candidates[chosen_idx][1]
+                    st.session_state.selected_problem = chosen_entry["problem"]
+
+                    context = (
+                        f"System: {chosen_entry['system']}\n"
+                        f"Problem: {chosen_entry['problem']}\n"
+                        f"What to Try First: {chosen_entry['what_to_try_first']}\n"
+                        f"When to Call Support: {chosen_entry['when_to_call_support']}\n"
+                    )
 
                     response = client.chat.completions.create(
                         model="gpt-4o-mini",
                         messages=[
                             {"role": "system", "content": f"You are a helpful IT troubleshooting assistant. Respond only in {selected_language}."},
                             {"role": "user", "content": f"My issue: {user_input}"},
-                            {"role": "assistant", "content": f"Troubleshooting entry:\n{chosen_entry}"}
+                            {"role": "assistant", "content": f"Troubleshooting entry:\n{context}"}
                         ],
                         max_tokens=300
                     )
                     answer = response.choices[0].message.content
+
+                    st.subheader(f"{selected_problem} ({chosen_entry['system']})")
                     st.write(answer)
 
                     st.session_state.awaiting_yes_no = True
             else:
                 st.warning(ui_local.get("no_results", "No matching problems found."))
+
+# -------------------
+# Step 3: Yes/No Buttons
+# -------------------
+if st.session_state.awaiting_yes_no:
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button(local_text.get("yes", "Yes")):
+            st.success(local_text.get("success", "Glad it worked!"))
+            # Reset to start
+            for k, v in defaults.items():
+                st.session_state[k] = v
+            st.rerun()
+    with col2:
+        if st.button(local_text.get("no", "No")):
+            st.session_state.current_index += 1
+            if st.session_state.current_index < len(st.session_state.candidates):
+                next_entry = st.session_state.candidates[st.session_state.current_index][1]
+                st.session_state.selected_problem = next_entry["problem"]
+                st.rerun()
+            else:
+                st.error(local_text.get("error", "Please contact support."))
+                for k, v in defaults.items():
+                    st.session_state[k] = v
+                st.rerun()
