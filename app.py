@@ -169,8 +169,13 @@ if st.session_state.system_choice:
     # Manual text input
     user_input = st.text_input("💬 " + ui_local.get("text_input", "Type your issue here"))
 
-    # Voice input
+    # Voice input with WebRTC
     st.markdown(ui_local.get("voice_prompt", "🎤 Or record your issue below:"))
+
+    # Reset buffer before each new recording session
+    if "audio_processor" in st.session_state:
+        st.session_state.audio_processor.buffer = []
+
     webrtc_ctx = webrtc_streamer(
         key="speech",
         mode=WebRtcMode.SENDRECV,
@@ -178,12 +183,14 @@ if st.session_state.system_choice:
         audio_processor_factory=AudioProcessor,
         media_stream_constraints={"audio": True, "video": False},
     )
+
     if webrtc_ctx and webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
+        st.session_state.audio_processor = webrtc_ctx.audio_processor
         if st.button(ui_local.get("stop_transcribe", "Stop & Transcribe")):
             if webrtc_ctx.audio_processor.buffer:
                 audio_data = np.concatenate(webrtc_ctx.audio_processor.buffer)
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-                    sf.write(tmpfile.name, audio_data, 48000)
+                    sf.write(tmpfile.name, audio_data, 44100)  # fallback to 44.1kHz
                     st.audio(tmpfile.name)
                     with open(tmpfile.name, "rb") as audio_file:
                         transcript = client.audio.transcriptions.create(
@@ -196,7 +203,7 @@ if st.session_state.system_choice:
                 st.warning("⚠️ No audio detected. Please speak and try again.")
 
     # -------------------
-    # Fuzzy search
+    # Run fuzzy search
     # -------------------
     if user_input:
         translation = client.chat.completions.create(
@@ -235,6 +242,7 @@ if st.session_state.system_choice:
                 ["-- Select a problem --"] + translated_choices,
                 key="problem_selector"
             )
+
             if selected_problem != "-- Select a problem --":
                 chosen_idx = translated_choices.index(selected_problem)
                 chosen_entry = st.session_state.candidates[chosen_idx][1]
