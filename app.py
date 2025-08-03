@@ -244,14 +244,15 @@ if st.session_state.system_choice:
 # Step 3: Yes/No Buttons
 # -------------------
 if st.session_state.awaiting_yes_no:
+    st.write(ui_local.get("confirmation_question", "Did this resolve your issue?"))
     col1, col2 = st.columns(2)
     with col1:
         if st.button(local_text.get("yes", "Yes")):
             st.success(local_text.get("success", "Glad it worked!"))
-            # Reset absolutely everything to starting state
+            # Reset to starting state
             for k, v in defaults.items():
                 st.session_state[k] = v
-            st.experimental_rerun()
+            st.rerun()
 
     with col2:
         if st.button(local_text.get("no", "No")):
@@ -259,9 +260,9 @@ if st.session_state.awaiting_yes_no:
             if st.session_state.current_index < len(st.session_state.candidates):
                 next_score, next_entry = st.session_state.candidates[st.session_state.current_index]
                 st.session_state.selected_problem = next_entry["problem"]
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error(local_text.get("error", "Please contact support."))
                 for k, v in defaults.items():
                     st.session_state[k] = v
-                st.experimental_rerun()
+                st.rerun()
