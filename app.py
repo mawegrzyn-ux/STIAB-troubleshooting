@@ -6,7 +6,7 @@ import numpy as np
 import soundfile as sf
 from rapidfuzz import fuzz
 from openai import OpenAI
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, RTCConfiguration, WebRtcMode
+from streamlit_webrtc import AudioProcessorBase, RTCConfiguration, WebRtcMode, webrtc_streamer
 import av
 
 # -------------------
@@ -248,19 +248,20 @@ if st.session_state.awaiting_yes_no:
     with col1:
         if st.button(local_text.get("yes", "Yes")):
             st.success(local_text.get("success", "Glad it worked!"))
-            # Reset to starting point
+            # Reset absolutely everything to starting state
             for k, v in defaults.items():
                 st.session_state[k] = v
-            st.rerun()
+            st.experimental_rerun()
+
     with col2:
         if st.button(local_text.get("no", "No")):
             st.session_state.current_index += 1
             if st.session_state.current_index < len(st.session_state.candidates):
                 next_score, next_entry = st.session_state.candidates[st.session_state.current_index]
                 st.session_state.selected_problem = next_entry["problem"]
-                st.rerun()
+                st.experimental_rerun()
             else:
                 st.error(local_text.get("error", "Please contact support."))
                 for k, v in defaults.items():
                     st.session_state[k] = v
-                st.rerun()
+                st.experimental_rerun()
