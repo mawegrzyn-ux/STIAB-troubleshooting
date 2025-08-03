@@ -1,6 +1,8 @@
 import streamlit as st
 import json
 import os
+import tempfile
+import numpy as np
 from rapidfuzz import fuzz
 from openai import OpenAI
 
@@ -20,6 +22,25 @@ def local_css(file_name):
 
 local_css("styles.css")
 
+# Overlay CSS
+st.markdown("""
+<style>
+.block-ui {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(255,255,255,0.7);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #0a4817;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # -------------------
 # JSON Loader
 # -------------------
@@ -33,8 +54,6 @@ def load_json_safe(file_path, default_data):
         except json.JSONDecodeError:
             st.warning(f"⚠️ {file_path} is invalid JSON.")
     return default_data
-
-languages = ["English", "French", "Dutch", "Spanish", "Italian", "German"]
 
 translations_data = load_json_safe("translations.json", {})
 troubleshooting_data = load_json_safe("troubleshooting.json", [])
@@ -63,41 +82,34 @@ def translate_problem(problem_text, lang):
     st.session_state.problem_translations = translations
     return translated_problem
 
-def get_match_label(score):
+def get_match_label(score, ui_local):
     if score >= 80:
-        return "Best Match"
+        return ui_local.get("best_match", "Best Match")
     elif score >= 65:
-        return "Good Match"
+        return ui_local.get("good_match", "Good Match")
     else:
-        return "Possible Match"
+        return ui_local.get("possible_match", "Possible Match")
 
 # -------------------
-# Session State
+# Session State Defaults
 # -------------------
-if "selected_language" not in st.session_state:
-    st.session_state.selected_language = "English"
-if "system_choice" not in st.session_state:
-    st.session_state.system_choice = None
-if "candidates" not in st.session_state:
-    st.session_state.candidates = []
-if "current_index" not in st.session_state:
-    st.session_state.current_index = 0
-if "selected_problem" not in st.session_state:
-    st.session_state.selected_problem = None
-if "awaiting_yes_no" not in st.session_state:
-    st.session_state.awaiting_yes_no = False
-if "show_lang_popup" not in st.session_state:
-    st.session_state.show_lang_popup = False
+defaults = {
+    "selected_language": "English",
+    "system_choice": None,
+    "candidates": [],
+    "current_index": 0,
+    "selected_problem": None,
+    "awaiting_yes_no": False,
+    "show_lang_popup": False,
+    "is_loading": False,
+}
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 selected_language = st.session_state.selected_language
-
-# Safely load UI and buttons, fallback to English
-ui_local = translations_data.get(selected_language, translations_data.get("English", {})).get(
-    "ui", translations_data.get("English", {}).get("ui", {})
-)
-local_text = translations_data.get(selected_language, translations_data.get("English", {})).get(
-    "buttons", translations_data.get("English", {}).get("buttons", {})
-)
+ui_local = translations_data.get(selected_language, {}).get("ui", translations_data["English"]["ui"])
+local_text = translations_data.get(selected_language, {}).get("buttons", translations_data["English"]["buttons"])
 
 # -------------------
 # Language toggle
@@ -115,22 +127,18 @@ if st.session_state.show_lang_popup:
         "German": "🇩🇪"
     }
     selected_popup_lang = st.radio(
-        "Choose your language",
+        ui_local.get("choose_lang", "Choose your language"),
         options=list(flags.keys()),
         format_func=lambda lang: f"{flags[lang]} {lang}",
         index=list(flags.keys()).index(st.session_state.selected_language)
     )
-    if st.button("Confirm"):
+    if st.button(ui_local.get("confirm", "Confirm")):
         st.session_state.selected_language = selected_popup_lang
         st.session_state.show_lang_popup = False
-
-        # Reset UI state after language change
-        st.session_state.system_choice = None
-        st.session_state.candidates = []
+        for k in ["system_choice", "candidates", "selected_problem"]:
+            st.session_state[k] = None if k == "system_choice" else []
         st.session_state.current_index = 0
-        st.session_state.selected_problem = None
         st.session_state.awaiting_yes_no = False
-
         st.rerun()
 
 # -------------------
@@ -151,105 +159,108 @@ system_choice = st.selectbox(
         ui_local.get("not_sure", "I'm not sure"),
     ]
 )
-
 if system_choice != "-- Select a system --":
-    if system_choice == ui_local.get("not_sure", "I'm not sure"):
-        st.session_state.system_choice = "I'm not sure"
-    else:
-        st.session_state.system_choice = system_choice
+    st.session_state.system_choice = (
+        "I'm not sure" if system_choice == ui_local.get("not_sure", "I'm not sure") else system_choice
+    )
 
 # -------------------
-# Step 2: Issue Input (Typing only)
+# Step 2: Issue Input
 # -------------------
 user_input = None
 if st.session_state.system_choice:
     st.write(ui_local.get("issue_placeholder", "Describe your issue"))
 
     # Manual text input
-    user_input = st.text_input("💬 Type your issue here")
+    user_input = st.text_input("💬 " + ui_local.get("text_input", "Type your issue here"))
 
-    if user_input:
-        translation = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": f"Translate this text from {selected_language} to English."},
-                {"role": "user", "content": user_input}
-            ],
-            max_tokens=100
-        )
-        translated_input = translation.choices[0].message.content
+    if user_input and not st.session_state.is_loading:
+        st.session_state.is_loading = True
+        st.markdown('<div class="block-ui">⏳ Please wait...</div>', unsafe_allow_html=True)
 
-        matches = []
-        for entry in troubleshooting_data:
-            if st.session_state.system_choice == "I'm not sure" or entry.get("system") == st.session_state.system_choice:
-                score_problem = fuzz.partial_ratio(translated_input.lower(), entry.get("problem", "").lower())
-                score_try = fuzz.partial_ratio(translated_input.lower(), entry.get("what_to_try_first", "").lower())
-                score = max(score_problem, score_try)
-                if score > 50:
-                    matches.append((score, entry))
-
-        matches.sort(reverse=True, key=lambda x: x[0])
-        st.session_state.candidates = matches[:5]
-
-        if st.session_state.candidates:
-            translated_choices = []
-            for score, entry in st.session_state.candidates:
-                translated_problem = translate_problem(entry["problem"], selected_language)
-                if st.session_state.system_choice == "I'm not sure":
-                    translated_choices.append(f"{entry['system']} - {translated_problem}")
-                else:
-                    translated_choices.append(translated_problem)
-
-            selected_problem = st.selectbox(
-                ui_local.get("suggestions_label", "Possible issues"),
-                ["-- Select a problem --"] + translated_choices,
-                key="problem_selector"
+        with st.spinner(ui_local.get("loading", "Thinking...")):
+            translation = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": f"Translate this text from {selected_language} to English."},
+                    {"role": "user", "content": user_input}
+                ],
+                max_tokens=100
             )
+            translated_input = translation.choices[0].message.content
 
-            if selected_problem != "-- Select a problem --":
-                chosen_idx = translated_choices.index(selected_problem)
-                chosen_entry = st.session_state.candidates[chosen_idx][1]
-                st.session_state.selected_problem = chosen_entry["problem"]
+            matches = []
+            for entry in troubleshooting_data:
+                if st.session_state.system_choice == "I'm not sure" or entry.get("system") == st.session_state.system_choice:
+                    score_problem = fuzz.partial_ratio(translated_input.lower(), entry.get("problem", "").lower())
+                    score_try = fuzz.partial_ratio(translated_input.lower(), entry.get("what_to_try_first", "").lower())
+                    score = max(score_problem, score_try)
+                    if score > 50:
+                        matches.append((score, entry))
 
-                score = st.session_state.candidates[chosen_idx][0]
-                match_label = get_match_label(score)
+            matches.sort(reverse=True, key=lambda x: x[0])
+            st.session_state.candidates = matches[:5]
 
-                context = (
-                    f"System: {chosen_entry['system']}\n"
-                    f"Problem: {chosen_entry['problem']}\n"
-                    f"What to Try First: {chosen_entry['what_to_try_first']}\n"
-                    f"When to Call Support: {chosen_entry['when_to_call_support']}\n"
+            if st.session_state.candidates:
+                translated_choices = []
+                for score, entry in st.session_state.candidates:
+                    translated_problem = translate_problem(entry["problem"], selected_language)
+                    if st.session_state.system_choice == "I'm not sure":
+                        translated_choices.append(f"{entry['system']} - {translated_problem}")
+                    else:
+                        translated_choices.append(translated_problem)
+
+                selected_problem = st.selectbox(
+                    ui_local.get("suggestions_label", "Possible issues"),
+                    ["-- Select a problem --"] + translated_choices,
+                    key="problem_selector",
                 )
 
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": f"You are a helpful IT troubleshooting assistant. Respond only in {selected_language}."},
-                        {"role": "user", "content": f"My issue: {user_input}"},
-                        {"role": "assistant", "content": f"Troubleshooting entry:\n{context}"}
-                    ],
-                    max_tokens=300
-                )
-                answer = response.choices[0].message.content
+                if selected_problem != "-- Select a problem --":
+                    chosen_idx = translated_choices.index(selected_problem)
+                    chosen_entry = st.session_state.candidates[chosen_idx][1]
+                    st.session_state.selected_problem = chosen_entry["problem"]
 
-                st.subheader(f"{match_label}: {translate_problem(chosen_entry['problem'], selected_language)} ({chosen_entry['system']})")
-                st.write(answer)
+                    score = st.session_state.candidates[chosen_idx][0]
+                    match_label = get_match_label(score, ui_local)
 
-                st.session_state.awaiting_yes_no = True
-        else:
-            st.warning(ui_local.get("no_results", "No matching problems found."))
+                    context = (
+                        f"System: {chosen_entry['system']}\n"
+                        f"Problem: {chosen_entry['problem']}\n"
+                        f"What to Try First: {chosen_entry['what_to_try_first']}\n"
+                        f"When to Call Support: {chosen_entry['when_to_call_support']}\n"
+                    )
+
+                    response = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "system", "content": f"You are a helpful IT troubleshooting assistant. Respond only in {selected_language}."},
+                            {"role": "user", "content": f"My issue: {user_input}"},
+                            {"role": "assistant", "content": f"Troubleshooting entry:\n{context}"}
+                        ],
+                        max_tokens=300
+                    )
+                    answer = response.choices[0].message.content
+
+                    st.subheader(f"{match_label}: {translate_problem(chosen_entry['problem'], selected_language)} ({chosen_entry['system']})")
+                    st.write(answer)
+
+                    st.session_state.awaiting_yes_no = True
+            else:
+                st.warning(ui_local.get("no_results", "No matching problems found."))
+        st.session_state.is_loading = False
 
 # -------------------
 # Step 3: Yes/No Buttons
 # -------------------
 if st.session_state.awaiting_yes_no:
+    st.markdown(f"**{ui_local.get('did_help', 'Did this solve your issue?')}**")
     col1, col2 = st.columns(2)
     with col1:
         if st.button(local_text.get("yes", "Yes")):
             st.success(local_text.get("success", "Glad it worked!"))
-            st.session_state.awaiting_yes_no = False
-            st.session_state.selected_problem = None
-            st.session_state.candidates = []
+            for key in ["system_choice", "candidates", "selected_problem", "awaiting_yes_no"]:
+                st.session_state[key] = None if key == "system_choice" else []
             st.session_state.current_index = 0
             st.rerun()
     with col2:
@@ -261,7 +272,7 @@ if st.session_state.awaiting_yes_no:
                 st.rerun()
             else:
                 st.error(local_text.get("error", "Please contact support."))
-                st.session_state.awaiting_yes_no = False
-                st.session_state.selected_problem = None
-                st.session_state.candidates = []
+                for key in ["system_choice", "candidates", "selected_problem", "awaiting_yes_no"]:
+                    st.session_state[key] = None if key == "system_choice" else []
                 st.session_state.current_index = 0
+                st.rerun()
