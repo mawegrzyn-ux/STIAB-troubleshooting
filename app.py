@@ -103,7 +103,6 @@ for key, value in defaults.items():
         st.session_state[key] = value
 
 selected_language = st.session_state.selected_language
-st.write("DEBUG:", selected_language, translations_data.keys())
 ui_local = translations_data.get(selected_language, {}).get("ui", translations_data["English"]["ui"])
 local_text = translations_data.get(selected_language, {}).get("buttons", translations_data["English"]["buttons"])
 
