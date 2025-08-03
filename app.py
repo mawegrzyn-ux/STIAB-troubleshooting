@@ -6,7 +6,7 @@ import numpy as np
 import soundfile as sf
 from rapidfuzz import fuzz
 from openai import OpenAI
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, RTCConfiguration
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, RTCConfiguration, WebRtcMode
 import av
 
 # -------------------
@@ -87,7 +87,7 @@ class AudioProcessor(AudioProcessorBase):
         return frame
 
 # -------------------
-# Session State
+# Session State Defaults
 # -------------------
 defaults = {
     "selected_language": "English",
@@ -174,7 +174,7 @@ if st.session_state.system_choice:
     st.markdown(ui_local.get("voice_prompt", "🎤 Or record your issue below:"))
     webrtc_ctx = webrtc_streamer(
         key="speech",
-        mode="WebRtcMode.SENDRECV",
+        mode=WebRtcMode.SENDRECV,  # ✅ fixed here
         rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
         audio_processor_factory=AudioProcessor,
         media_stream_constraints={"audio": True, "video": False},
