@@ -1,14 +1,29 @@
 import streamlit as st
 import json
 import os
+import tempfile
+import numpy as np
+import soundfile as sf
 from rapidfuzz import fuzz
 from openai import OpenAI
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, RTCConfiguration, WebRtcMode
+import av
 
 # -------------------
 # Setup
 # -------------------
 st.set_page_config(page_title="STIAB Assistant", layout="centered")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+# -------------------
+# Load Custom CSS
+# -------------------
+def local_css(file_name):
+    if os.path.exists(file_name):
+        with open(file_name) as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+local_css("styles.css")
 
 # -------------------
 # JSON Loader
@@ -26,6 +41,50 @@ def load_json_safe(file_path, default_data):
 
 translations_data = load_json_safe("translations.json", {})
 troubleshooting_data = load_json_safe("troubleshooting.json", [])
+if "problem_translations" not in st.session_state:
+    st.session_state.problem_translations = load_json_safe("problem_translations.json", {})
+
+# -------------------
+# Helpers
+# -------------------
+def translate_problem(problem_text, lang):
+    translations = st.session_state.problem_translations
+    if problem_text in translations and lang in translations[problem_text]:
+        return translations[problem_text][lang]
+    translation = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": f"Translate the following problem into {lang}. Return only the translated text."},
+            {"role": "user", "content": problem_text}
+        ],
+        max_tokens=100
+    )
+    translated_problem = translation.choices[0].message.content.strip()
+    if problem_text not in translations:
+        translations[problem_text] = {}
+    translations[problem_text][lang] = translated_problem
+    st.session_state.problem_translations = translations
+    return translated_problem
+
+def get_match_label(score, ui_local):
+    if score >= 80:
+        return ui_local.get("best_match", "Best Match")
+    elif score >= 65:
+        return ui_local.get("good_match", "Good Match")
+    else:
+        return ui_local.get("possible_match", "Possible Match")
+
+# -------------------
+# Audio Processor
+# -------------------
+class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.buffer = []
+
+    def recv_audio(self, frame: av.AudioFrame) -> av.AudioFrame:
+        audio = frame.to_ndarray()
+        self.buffer.append(audio)
+        return frame
 
 # -------------------
 # Session State Defaults
@@ -44,8 +103,8 @@ for key, value in defaults.items():
         st.session_state[key] = value
 
 selected_language = st.session_state.selected_language
-ui_local = translations_data.get(selected_language, {}).get("ui", translations_data.get("English", {}).get("ui", {}))
-local_text = translations_data.get(selected_language, {}).get("buttons", translations_data.get("English", {}).get("buttons", {}))
+ui_local = translations_data.get(selected_language, {}).get("ui", translations_data["English"]["ui"])
+local_text = translations_data.get(selected_language, {}).get("buttons", translations_data["English"]["buttons"])
 
 # -------------------
 # Language toggle
@@ -101,17 +160,16 @@ if system_choice != "-- Select a system --":
     )
 
 # -------------------
-# Step 2: Issue Input + Spinner
+# Step 2: Issue Input
 # -------------------
 user_input = None
 if st.session_state.system_choice:
     st.write(ui_local.get("issue_placeholder", "Describe your issue"))
+
     user_input = st.text_input("💬 " + ui_local.get("text_input", "Type your issue here"))
 
-    spinner_placeholder = st.empty()
-
     if user_input:
-        with spinner_placeholder, st.spinner(ui_local.get("loading", "Thinking...")):
+        with st.spinner(ui_local.get("loading", "Thinking...")):
             translation = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
@@ -120,7 +178,7 @@ if st.session_state.system_choice:
                 ],
                 max_tokens=100
             )
-            translated_input = translation.choices[0].message.content
+            translated_input = translation.choices[0].message.content.strip()
 
             matches = []
             for entry in troubleshooting_data:
@@ -135,17 +193,27 @@ if st.session_state.system_choice:
             st.session_state.candidates = matches[:5]
 
             if st.session_state.candidates:
-                translated_choices = [entry["problem"] for _, entry in st.session_state.candidates]
+                translated_choices = []
+                for score, entry in st.session_state.candidates:
+                    translated_problem = translate_problem(entry["problem"], selected_language)
+                    if st.session_state.system_choice == "I'm not sure":
+                        translated_choices.append(f"{entry['system']} - {translated_problem}")
+                    else:
+                        translated_choices.append(translated_problem)
+
                 selected_problem = st.selectbox(
                     ui_local.get("suggestions_label", "Possible issues"),
                     ["-- Select a problem --"] + translated_choices,
-                    key="problem_selector",
+                    key="problem_selector"
                 )
 
                 if selected_problem != "-- Select a problem --":
                     chosen_idx = translated_choices.index(selected_problem)
                     chosen_entry = st.session_state.candidates[chosen_idx][1]
                     st.session_state.selected_problem = chosen_entry["problem"]
+
+                    score = st.session_state.candidates[chosen_idx][0]
+                    match_label = get_match_label(score, ui_local)
 
                     context = (
                         f"System: {chosen_entry['system']}\n"
@@ -165,7 +233,7 @@ if st.session_state.system_choice:
                     )
                     answer = response.choices[0].message.content
 
-                    st.subheader(f"{selected_problem} ({chosen_entry['system']})")
+                    st.subheader(f"{match_label}: {translate_problem(chosen_entry['problem'], selected_language)} ({chosen_entry['system']})")
                     st.write(answer)
 
                     st.session_state.awaiting_yes_no = True
@@ -180,7 +248,7 @@ if st.session_state.awaiting_yes_no:
     with col1:
         if st.button(local_text.get("yes", "Yes")):
             st.success(local_text.get("success", "Glad it worked!"))
-            # Reset to start
+            # Reset to starting point
             for k, v in defaults.items():
                 st.session_state[k] = v
             st.rerun()
@@ -188,7 +256,7 @@ if st.session_state.awaiting_yes_no:
         if st.button(local_text.get("no", "No")):
             st.session_state.current_index += 1
             if st.session_state.current_index < len(st.session_state.candidates):
-                next_entry = st.session_state.candidates[st.session_state.current_index][1]
+                next_score, next_entry = st.session_state.candidates[st.session_state.current_index]
                 st.session_state.selected_problem = next_entry["problem"]
                 st.rerun()
             else:
