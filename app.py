@@ -22,25 +22,6 @@ def local_css(file_name):
 
 local_css("styles.css")
 
-# Overlay CSS
-st.markdown("""
-<style>
-.block-ui {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(255,255,255,0.7);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #0a4817;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # -------------------
 # JSON Loader
 # -------------------
@@ -176,7 +157,20 @@ if st.session_state.system_choice:
 
     if user_input and not st.session_state.is_loading:
         st.session_state.is_loading = True
-        st.markdown('<div class="block-ui">⏳ Please wait...</div>', unsafe_allow_html=True)
+        st.markdown('<div id="loading-overlay" class="block-ui">⏳ Please wait...</div>', unsafe_allow_html=True)
+
+        # Add fade-out JavaScript
+        st.markdown("""
+        <script>
+        function fadeOutOverlay() {
+          const overlay = document.getElementById("loading-overlay");
+          if (overlay) {
+            overlay.classList.add("fade-out");
+            setTimeout(() => overlay.remove(), 600);
+          }
+        }
+        </script>
+        """, unsafe_allow_html=True)
 
         with st.spinner(ui_local.get("loading", "Thinking...")):
             translation = client.chat.completions.create(
@@ -245,9 +239,13 @@ if st.session_state.system_choice:
                     st.subheader(f"{match_label}: {translate_problem(chosen_entry['problem'], selected_language)} ({chosen_entry['system']})")
                     st.write(answer)
 
+                    # Trigger fade out of overlay
+                    st.markdown("<script>fadeOutOverlay()</script>", unsafe_allow_html=True)
+
                     st.session_state.awaiting_yes_no = True
             else:
                 st.warning(ui_local.get("no_results", "No matching problems found."))
+
         st.session_state.is_loading = False
 
 # -------------------
