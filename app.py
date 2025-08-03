@@ -2,12 +2,12 @@ import streamlit as st
 import json
 import os
 import tempfile
-import numpy as np
-import soundfile as sf
 from rapidfuzz import fuzz
 from openai import OpenAI
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, RTCConfiguration, WebRtcMode
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, RTCConfiguration
 import av
+import numpy as np
+import soundfile as sf
 
 # -------------------
 # Setup
@@ -16,7 +16,7 @@ st.set_page_config(page_title="STIAB Assistant", layout="centered")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # -------------------
-# Load Custom CSS
+# Load CSS
 # -------------------
 def local_css(file_name):
     if os.path.exists(file_name):
@@ -26,7 +26,7 @@ def local_css(file_name):
 local_css("styles.css")
 
 # -------------------
-# JSON Loader
+# Load JSON files
 # -------------------
 def load_json_safe(file_path, default_data):
     if os.path.exists(file_path):
@@ -73,18 +73,6 @@ def get_match_label(score, ui_local):
         return ui_local.get("good_match", "Good Match")
     else:
         return ui_local.get("possible_match", "Possible Match")
-
-# -------------------
-# Audio Processor
-# -------------------
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.buffer = []
-
-    def recv_audio(self, frame: av.AudioFrame) -> av.AudioFrame:
-        audio = frame.to_ndarray()
-        self.buffer.append(audio)
-        return frame
 
 # -------------------
 # Session State Defaults
@@ -160,40 +148,33 @@ if system_choice != "-- Select a system --":
     )
 
 # -------------------
-# Step 2: Issue Input (Typing or Voice)
+# Step 2: Issue Input
 # -------------------
 user_input = None
 if st.session_state.system_choice:
     st.write(ui_local.get("issue_placeholder", "Describe your issue"))
 
-    # Manual text input
+    # Manual input
     user_input = st.text_input("💬 " + ui_local.get("text_input", "Type your issue here"))
 
     # Voice input
     st.markdown(ui_local.get("voice_prompt", "🎤 Or record your issue below:"))
-    webrtc_ctx = webrtc_streamer(
-        key="speech",
-        mode=WebRtcMode.SENDRECV,
-        rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
-        audio_processor_factory=AudioProcessor,
-        media_stream_constraints={"audio": True, "video": False},
-    )
-    if webrtc_ctx and webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
-        if st.button(ui_local.get("stop_transcribe", "Stop & Transcribe")):
-            if webrtc_ctx.audio_processor.buffer:
-                audio_data = np.concatenate(webrtc_ctx.audio_processor.buffer)
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-                    sf.write(tmpfile.name, audio_data, 48000)
-                    st.audio(tmpfile.name)
-                    with open(tmpfile.name, "rb") as audio_file:
-                        transcript = client.audio.transcriptions.create(
-                            model="whisper-1",
-                            file=audio_file
-                        )
-                        st.success(f"🎤 {ui_local.get('transcribed', 'Transcribed')}: {transcript.text}")
-                        user_input = transcript.text
-            else:
-                st.warning("⚠️ No audio detected. Please speak and try again.")
+
+    # Audio recorder widget
+    audio_bytes = st.file_uploader("Record your issue", type=["wav", "mp3", "m4a"])
+
+    if audio_bytes is not None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+            tmpfile.write(audio_bytes.read())
+            tmpfile.flush()
+            st.audio(tmpfile.name)
+            with open(tmpfile.name, "rb") as audio_file:
+                transcript = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file
+                )
+                st.success(f"🎤 {ui_local.get('transcribed', 'Transcribed')}: {transcript.text}")
+                user_input = transcript.text
 
     # -------------------
     # Fuzzy search
