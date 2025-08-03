@@ -1,13 +1,8 @@
 import streamlit as st
 import json
 import os
-import tempfile
-import numpy as np
-import soundfile as sf
 from rapidfuzz import fuzz
 from openai import OpenAI
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, RTCConfiguration, WebRtcMode
-import av
 
 # -------------------
 # Setup
@@ -39,6 +34,8 @@ def load_json_safe(file_path, default_data):
             st.warning(f"⚠️ {file_path} is invalid JSON.")
     return default_data
 
+languages = ["English", "French", "Dutch", "Spanish", "Italian", "German"]
+
 translations_data = load_json_safe("translations.json", {})
 troubleshooting_data = load_json_safe("troubleshooting.json", [])
 if "problem_translations" not in st.session_state:
@@ -66,45 +63,41 @@ def translate_problem(problem_text, lang):
     st.session_state.problem_translations = translations
     return translated_problem
 
-def get_match_label(score, ui_local):
+def get_match_label(score):
     if score >= 80:
-        return ui_local.get("best_match", "Best Match")
+        return "Best Match"
     elif score >= 65:
-        return ui_local.get("good_match", "Good Match")
+        return "Good Match"
     else:
-        return ui_local.get("possible_match", "Possible Match")
+        return "Possible Match"
 
 # -------------------
-# Audio Processor
+# Session State
 # -------------------
-class AudioProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.buffer = []
-
-    def recv_audio(self, frame: av.AudioFrame) -> av.AudioFrame:
-        audio = frame.to_ndarray()
-        self.buffer.append(audio)
-        return frame
-
-# -------------------
-# Session State Defaults
-# -------------------
-defaults = {
-    "selected_language": "English",
-    "system_choice": None,
-    "candidates": [],
-    "current_index": 0,
-    "selected_problem": None,
-    "awaiting_yes_no": False,
-    "show_lang_popup": False,
-}
-for key, value in defaults.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
+if "selected_language" not in st.session_state:
+    st.session_state.selected_language = "English"
+if "system_choice" not in st.session_state:
+    st.session_state.system_choice = None
+if "candidates" not in st.session_state:
+    st.session_state.candidates = []
+if "current_index" not in st.session_state:
+    st.session_state.current_index = 0
+if "selected_problem" not in st.session_state:
+    st.session_state.selected_problem = None
+if "awaiting_yes_no" not in st.session_state:
+    st.session_state.awaiting_yes_no = False
+if "show_lang_popup" not in st.session_state:
+    st.session_state.show_lang_popup = False
 
 selected_language = st.session_state.selected_language
-ui_local = translations_data.get(selected_language, {}).get("ui", translations_data["English"]["ui"])
-local_text = translations_data.get(selected_language, {}).get("buttons", translations_data["English"]["buttons"])
+
+# Safely load UI and buttons, fallback to English
+ui_local = translations_data.get(selected_language, translations_data.get("English", {})).get(
+    "ui", translations_data.get("English", {}).get("ui", {})
+)
+local_text = translations_data.get(selected_language, translations_data.get("English", {})).get(
+    "buttons", translations_data.get("English", {}).get("buttons", {})
+)
 
 # -------------------
 # Language toggle
@@ -122,18 +115,22 @@ if st.session_state.show_lang_popup:
         "German": "🇩🇪"
     }
     selected_popup_lang = st.radio(
-        ui_local.get("choose_lang", "Choose your language"),
+        "Choose your language",
         options=list(flags.keys()),
         format_func=lambda lang: f"{flags[lang]} {lang}",
         index=list(flags.keys()).index(st.session_state.selected_language)
     )
-    if st.button(ui_local.get("confirm", "Confirm")):
+    if st.button("Confirm"):
         st.session_state.selected_language = selected_popup_lang
         st.session_state.show_lang_popup = False
-        for k in ["system_choice", "candidates", "selected_problem"]:
-            st.session_state[k] = None if k == "system_choice" else []
+
+        # Reset UI state after language change
+        st.session_state.system_choice = None
+        st.session_state.candidates = []
         st.session_state.current_index = 0
+        st.session_state.selected_problem = None
         st.session_state.awaiting_yes_no = False
+
         st.rerun()
 
 # -------------------
@@ -154,57 +151,23 @@ system_choice = st.selectbox(
         ui_local.get("not_sure", "I'm not sure"),
     ]
 )
+
 if system_choice != "-- Select a system --":
-    st.session_state.system_choice = (
-        "I'm not sure" if system_choice == ui_local.get("not_sure", "I'm not sure") else system_choice
-    )
+    if system_choice == ui_local.get("not_sure", "I'm not sure"):
+        st.session_state.system_choice = "I'm not sure"
+    else:
+        st.session_state.system_choice = system_choice
 
 # -------------------
-# Step 2: Issue Input (Typing or Voice)
+# Step 2: Issue Input (Typing only)
 # -------------------
 user_input = None
 if st.session_state.system_choice:
     st.write(ui_local.get("issue_placeholder", "Describe your issue"))
 
     # Manual text input
-    user_input = st.text_input("💬 " + ui_local.get("text_input", "Type your issue here"))
+    user_input = st.text_input("💬 Type your issue here")
 
-    # Voice input with WebRTC
-    st.markdown(ui_local.get("voice_prompt", "🎤 Or record your issue below:"))
-
-    # Reset buffer before each new recording session
-    if "audio_processor" in st.session_state:
-        st.session_state.audio_processor.buffer = []
-
-    webrtc_ctx = webrtc_streamer(
-        key="speech",
-        mode=WebRtcMode.SENDRECV,
-        rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
-        audio_processor_factory=AudioProcessor,
-        media_stream_constraints={"audio": True, "video": False},
-    )
-
-    if webrtc_ctx and webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
-        st.session_state.audio_processor = webrtc_ctx.audio_processor
-        if st.button(ui_local.get("stop_transcribe", "Stop & Transcribe")):
-            if webrtc_ctx.audio_processor.buffer:
-                audio_data = np.concatenate(webrtc_ctx.audio_processor.buffer)
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-                    sf.write(tmpfile.name, audio_data, 44100)  # fallback to 44.1kHz
-                    st.audio(tmpfile.name)
-                    with open(tmpfile.name, "rb") as audio_file:
-                        transcript = client.audio.transcriptions.create(
-                            model="whisper-1",
-                            file=audio_file
-                        )
-                        st.success(f"🎤 {ui_local.get('transcribed', 'Transcribed')}: {transcript.text}")
-                        user_input = transcript.text
-            else:
-                st.warning("⚠️ No audio detected. Please speak and try again.")
-
-    # -------------------
-    # Run fuzzy search
-    # -------------------
     if user_input:
         translation = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -249,7 +212,7 @@ if st.session_state.system_choice:
                 st.session_state.selected_problem = chosen_entry["problem"]
 
                 score = st.session_state.candidates[chosen_idx][0]
-                match_label = get_match_label(score, ui_local)
+                match_label = get_match_label(score)
 
                 context = (
                     f"System: {chosen_entry['system']}\n"
