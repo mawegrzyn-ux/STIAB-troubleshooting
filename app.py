@@ -174,7 +174,7 @@ if st.session_state.system_choice:
     st.markdown(ui_local.get("voice_prompt", "🎤 Or record your issue below:"))
     webrtc_ctx = webrtc_streamer(
         key="speech",
-        mode="sendrecv",
+        mode="WebRtcMode.SENDRECV",
         rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
         audio_processor_factory=AudioProcessor,
         media_stream_constraints={"audio": True, "video": False},
