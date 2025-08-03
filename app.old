@@ -6,7 +6,7 @@ import numpy as np
 import soundfile as sf
 from rapidfuzz import fuzz
 from openai import OpenAI
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, RTCConfiguration, WebRtcMode
+from streamlit_webrtc import AudioProcessorBase, RTCConfiguration, WebRtcMode, webrtc_streamer
 import av
 
 # -------------------
@@ -160,135 +160,100 @@ if system_choice != "-- Select a system --":
     )
 
 # -------------------
-# Step 2: Issue Input (Typing or Voice)
+# Step 2: Issue Input
 # -------------------
 user_input = None
 if st.session_state.system_choice:
     st.write(ui_local.get("issue_placeholder", "Describe your issue"))
 
-    # Manual text input
     user_input = st.text_input("💬 " + ui_local.get("text_input", "Type your issue here"))
 
-    # Voice input with WebRTC
-    st.markdown(ui_local.get("voice_prompt", "🎤 Or record your issue below:"))
-
-    # Reset buffer before each new recording session
-    if "audio_processor" in st.session_state:
-        st.session_state.audio_processor.buffer = []
-
-    webrtc_ctx = webrtc_streamer(
-        key="speech",
-        mode=WebRtcMode.SENDRECV,
-        rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
-        audio_processor_factory=AudioProcessor,
-        media_stream_constraints={"audio": True, "video": False},
-    )
-
-    if webrtc_ctx and webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
-        st.session_state.audio_processor = webrtc_ctx.audio_processor
-        if st.button(ui_local.get("stop_transcribe", "Stop & Transcribe")):
-            if webrtc_ctx.audio_processor.buffer:
-                audio_data = np.concatenate(webrtc_ctx.audio_processor.buffer)
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-                    sf.write(tmpfile.name, audio_data, 44100)  # fallback to 44.1kHz
-                    st.audio(tmpfile.name)
-                    with open(tmpfile.name, "rb") as audio_file:
-                        transcript = client.audio.transcriptions.create(
-                            model="whisper-1",
-                            file=audio_file
-                        )
-                        st.success(f"🎤 {ui_local.get('transcribed', 'Transcribed')}: {transcript.text}")
-                        user_input = transcript.text
-            else:
-                st.warning("⚠️ No audio detected. Please speak and try again.")
-
-    # -------------------
-    # Run fuzzy search
-    # -------------------
     if user_input:
-        translation = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": f"Translate this text from {selected_language} to English."},
-                {"role": "user", "content": user_input}
-            ],
-            max_tokens=100
-        )
-        translated_input = translation.choices[0].message.content
-
-        matches = []
-        for entry in troubleshooting_data:
-            if st.session_state.system_choice == "I'm not sure" or entry.get("system") == st.session_state.system_choice:
-                score_problem = fuzz.partial_ratio(translated_input.lower(), entry.get("problem", "").lower())
-                score_try = fuzz.partial_ratio(translated_input.lower(), entry.get("what_to_try_first", "").lower())
-                score = max(score_problem, score_try)
-                if score > 50:
-                    matches.append((score, entry))
-
-        matches.sort(reverse=True, key=lambda x: x[0])
-        st.session_state.candidates = matches[:5]
-
-        if st.session_state.candidates:
-            translated_choices = []
-            for score, entry in st.session_state.candidates:
-                translated_problem = translate_problem(entry["problem"], selected_language)
-                if st.session_state.system_choice == "I'm not sure":
-                    translated_choices.append(f"{entry['system']} - {translated_problem}")
-                else:
-                    translated_choices.append(translated_problem)
-
-            selected_problem = st.selectbox(
-                ui_local.get("suggestions_label", "Possible issues"),
-                ["-- Select a problem --"] + translated_choices,
-                key="problem_selector"
+        with st.spinner(ui_local.get("loading", "Thinking...")):
+            translation = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": f"Translate this text from {selected_language} to English."},
+                    {"role": "user", "content": user_input}
+                ],
+                max_tokens=100
             )
+            translated_input = translation.choices[0].message.content.strip()
 
-            if selected_problem != "-- Select a problem --":
-                chosen_idx = translated_choices.index(selected_problem)
-                chosen_entry = st.session_state.candidates[chosen_idx][1]
-                st.session_state.selected_problem = chosen_entry["problem"]
+            matches = []
+            for entry in troubleshooting_data:
+                if st.session_state.system_choice == "I'm not sure" or entry.get("system") == st.session_state.system_choice:
+                    score_problem = fuzz.partial_ratio(translated_input.lower(), entry.get("problem", "").lower())
+                    score_try = fuzz.partial_ratio(translated_input.lower(), entry.get("what_to_try_first", "").lower())
+                    score = max(score_problem, score_try)
+                    if score > 50:
+                        matches.append((score, entry))
 
-                score = st.session_state.candidates[chosen_idx][0]
-                match_label = get_match_label(score, ui_local)
+            matches.sort(reverse=True, key=lambda x: x[0])
+            st.session_state.candidates = matches[:5]
 
-                context = (
-                    f"System: {chosen_entry['system']}\n"
-                    f"Problem: {chosen_entry['problem']}\n"
-                    f"What to Try First: {chosen_entry['what_to_try_first']}\n"
-                    f"When to Call Support: {chosen_entry['when_to_call_support']}\n"
+            if st.session_state.candidates:
+                translated_choices = []
+                for score, entry in st.session_state.candidates:
+                    translated_problem = translate_problem(entry["problem"], selected_language)
+                    if st.session_state.system_choice == "I'm not sure":
+                        translated_choices.append(f"{entry['system']} - {translated_problem}")
+                    else:
+                        translated_choices.append(translated_problem)
+
+                selected_problem = st.selectbox(
+                    ui_local.get("suggestions_label", "Possible issues"),
+                    ["-- Select a problem --"] + translated_choices,
+                    key="problem_selector"
                 )
 
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": f"You are a helpful IT troubleshooting assistant. Respond only in {selected_language}."},
-                        {"role": "user", "content": f"My issue: {user_input}"},
-                        {"role": "assistant", "content": f"Troubleshooting entry:\n{context}"}
-                    ],
-                    max_tokens=300
-                )
-                answer = response.choices[0].message.content
+                if selected_problem != "-- Select a problem --":
+                    chosen_idx = translated_choices.index(selected_problem)
+                    chosen_entry = st.session_state.candidates[chosen_idx][1]
+                    st.session_state.selected_problem = chosen_entry["problem"]
 
-                st.subheader(f"{match_label}: {translate_problem(chosen_entry['problem'], selected_language)} ({chosen_entry['system']})")
-                st.write(answer)
+                    score = st.session_state.candidates[chosen_idx][0]
+                    match_label = get_match_label(score, ui_local)
 
-                st.session_state.awaiting_yes_no = True
-        else:
-            st.warning(ui_local.get("no_results", "No matching problems found."))
+                    context = (
+                        f"System: {chosen_entry['system']}\n"
+                        f"Problem: {chosen_entry['problem']}\n"
+                        f"What to Try First: {chosen_entry['what_to_try_first']}\n"
+                        f"When to Call Support: {chosen_entry['when_to_call_support']}\n"
+                    )
+
+                    response = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "system", "content": f"You are a helpful IT troubleshooting assistant. Respond only in {selected_language}."},
+                            {"role": "user", "content": f"My issue: {user_input}"},
+                            {"role": "assistant", "content": f"Troubleshooting entry:\n{context}"}
+                        ],
+                        max_tokens=300
+                    )
+                    answer = response.choices[0].message.content
+
+                    st.subheader(f"{match_label}: {translate_problem(chosen_entry['problem'], selected_language)} ({chosen_entry['system']})")
+                    st.write(answer)
+
+                    st.session_state.awaiting_yes_no = True
+            else:
+                st.warning(ui_local.get("no_results", "No matching problems found."))
 
 # -------------------
 # Step 3: Yes/No Buttons
 # -------------------
 if st.session_state.awaiting_yes_no:
+    st.write(ui_local.get("confirmation_question", "Did this resolve your issue?"))
     col1, col2 = st.columns(2)
     with col1:
         if st.button(local_text.get("yes", "Yes")):
             st.success(local_text.get("success", "Glad it worked!"))
-            st.session_state.awaiting_yes_no = False
-            st.session_state.selected_problem = None
-            st.session_state.candidates = []
-            st.session_state.current_index = 0
+            # Reset to starting state
+            for k, v in defaults.items():
+                st.session_state[k] = v
             st.rerun()
+
     with col2:
         if st.button(local_text.get("no", "No")):
             st.session_state.current_index += 1
@@ -298,7 +263,6 @@ if st.session_state.awaiting_yes_no:
                 st.rerun()
             else:
                 st.error(local_text.get("error", "Please contact support."))
-                st.session_state.awaiting_yes_no = False
-                st.session_state.selected_problem = None
-                st.session_state.candidates = []
-                st.session_state.current_index = 0
+                for k, v in defaults.items():
+                    st.session_state[k] = v
+                st.rerun()
