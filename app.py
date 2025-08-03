@@ -130,7 +130,6 @@ if st.session_state.show_lang_popup:
     if st.button(ui_local.get("confirm", "Confirm")):
         st.session_state.selected_language = selected_popup_lang
         st.session_state.show_lang_popup = False
-        # Reset state
         for k in ["system_choice", "candidates", "selected_problem"]:
             st.session_state[k] = None if k == "system_choice" else []
         st.session_state.current_index = 0
@@ -174,24 +173,27 @@ if st.session_state.system_choice:
     st.markdown(ui_local.get("voice_prompt", "🎤 Or record your issue below:"))
     webrtc_ctx = webrtc_streamer(
         key="speech",
-        mode=WebRtcMode.SENDRECV,  # ✅ fixed here
+        mode=WebRtcMode.SENDRECV,
         rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
         audio_processor_factory=AudioProcessor,
         media_stream_constraints={"audio": True, "video": False},
     )
     if webrtc_ctx and webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
         if st.button(ui_local.get("stop_transcribe", "Stop & Transcribe")):
-            audio_data = np.concatenate(webrtc_ctx.audio_processor.buffer)
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-                sf.write(tmpfile.name, audio_data, 48000)
-                st.audio(tmpfile.name)
-                with open(tmpfile.name, "rb") as audio_file:
-                    transcript = client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=audio_file
-                    )
-                    st.success(f"🎤 {ui_local.get('transcribed', 'Transcribed')}: {transcript.text}")
-                    user_input = transcript.text
+            if webrtc_ctx.audio_processor.buffer:
+                audio_data = np.concatenate(webrtc_ctx.audio_processor.buffer)
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+                    sf.write(tmpfile.name, audio_data, 48000)
+                    st.audio(tmpfile.name)
+                    with open(tmpfile.name, "rb") as audio_file:
+                        transcript = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=audio_file
+                        )
+                        st.success(f"🎤 {ui_local.get('transcribed', 'Transcribed')}: {transcript.text}")
+                        user_input = transcript.text
+            else:
+                st.warning("⚠️ No audio detected. Please speak and try again.")
 
     # -------------------
     # Fuzzy search
