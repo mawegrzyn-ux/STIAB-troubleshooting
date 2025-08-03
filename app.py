@@ -27,20 +27,31 @@ class AudioProcessor(AudioProcessorBase):
         return frame
 
 # -------------------
-# WebRTC Recorder
+# WebRTC Recorder with TURN
 # -------------------
-st.title("🎤 Audio Debug Test")
-st.markdown("Speak into your mic after pressing **Start**. Watch the debug info update.")
+st.title("🎤 Audio Debug Test (with TURN)")
+st.markdown("Press **Start**, speak into your mic, and check the debug info.")
 
 webrtc_ctx = webrtc_streamer(
-    key="debug_speech",
+    key="debug_speech_turn",
     mode=WebRtcMode.SENDRECV,
-    rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
+    rtc_configuration=RTCConfiguration({
+        "iceServers": [
+            {"urls": ["stun:stun.l.google.com:19302"]},
+            {
+                "urls": [
+                    "turn:openrelay.metered.ca:80",
+                    "turn:openrelay.metered.ca:443",
+                    "turn:openrelay.metered.ca:443?transport=tcp"
+                ],
+                "username": "openrelayproject",
+                "credential": "openrelayproject"
+            }
+        ]
+    }),
     audio_processor_factory=AudioProcessor,
     media_stream_constraints={"audio": True, "video": False},
 )
-
-user_input = None
 
 if webrtc_ctx and webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
     st.info(f"🎤 Debug: WebRTC running. Frames captured: {webrtc_ctx.audio_processor.frame_count}, Buffer size: {len(webrtc_ctx.audio_processor.buffer)}")
@@ -58,7 +69,5 @@ if webrtc_ctx and webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
                         file=audio_file
                     )
                 st.success(f"🎤 Transcribed: {transcript.text}")
-                user_input = transcript.text
         else:
             st.error("⚠️ Debug: Buffer empty. No audio data captured.")
-
