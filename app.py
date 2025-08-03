@@ -9,7 +9,7 @@ import av
 # -------------------
 # Setup
 # -------------------
-st.set_page_config(page_title="Audio Debug Test", layout="centered")
+st.set_page_config(page_title="Forced Mic Test", layout="centered")
 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # -------------------
@@ -27,13 +27,13 @@ class AudioProcessor(AudioProcessorBase):
         return frame
 
 # -------------------
-# WebRTC Recorder with TURN
+# WebRTC Recorder with Forced Mic Access
 # -------------------
-st.title("🎤 Audio Debug Test (with TURN)")
-st.markdown("Press **Start**, speak into your mic, and check the debug info.")
+st.title("🎤 Forced Mic Test with Debug")
+st.markdown("Press **Start** → browser should immediately ask for mic permission.")
 
 webrtc_ctx = webrtc_streamer(
-    key="debug_speech_turn",
+    key="forced_mic_debug",
     mode=WebRtcMode.SENDRECV,
     rtc_configuration=RTCConfiguration({
         "iceServers": [
@@ -50,7 +50,7 @@ webrtc_ctx = webrtc_streamer(
         ]
     }),
     audio_processor_factory=AudioProcessor,
-    media_stream_constraints={"audio": True, "video": False},
+    media_stream_constraints={"audio": {"echoCancellation": True, "noiseSuppression": True}},
 )
 
 if webrtc_ctx and webrtc_ctx.state.playing and webrtc_ctx.audio_processor:
