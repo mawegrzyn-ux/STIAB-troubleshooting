@@ -1,8 +1,6 @@
 import streamlit as st
 import json
 import os
-import tempfile
-import numpy as np
 from rapidfuzz import fuzz
 from openai import OpenAI
 
@@ -82,7 +80,6 @@ defaults = {
     "selected_problem": None,
     "awaiting_yes_no": False,
     "show_lang_popup": False,
-    "is_loading": False,
 }
 for key, value in defaults.items():
     if key not in st.session_state:
@@ -155,23 +152,7 @@ if st.session_state.system_choice:
     # Manual text input
     user_input = st.text_input("💬 " + ui_local.get("text_input", "Type your issue here"))
 
-    if user_input and not st.session_state.is_loading:
-        st.session_state.is_loading = True
-        st.markdown('<div id="loading-overlay" class="block-ui">⏳ Please wait...</div>', unsafe_allow_html=True)
-
-        # Add fade-out JavaScript
-        st.markdown("""
-        <script>
-        function fadeOutOverlay() {
-          const overlay = document.getElementById("loading-overlay");
-          if (overlay) {
-            overlay.classList.add("fade-out");
-            setTimeout(() => overlay.remove(), 600);
-          }
-        }
-        </script>
-        """, unsafe_allow_html=True)
-
+    if user_input:
         with st.spinner(ui_local.get("loading", "Thinking...")):
             translation = client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -239,14 +220,9 @@ if st.session_state.system_choice:
                     st.subheader(f"{match_label}: {translate_problem(chosen_entry['problem'], selected_language)} ({chosen_entry['system']})")
                     st.write(answer)
 
-                    # Trigger fade out of overlay
-                    st.markdown("<script>fadeOutOverlay()</script>", unsafe_allow_html=True)
-
                     st.session_state.awaiting_yes_no = True
             else:
                 st.warning(ui_local.get("no_results", "No matching problems found."))
-
-        st.session_state.is_loading = False
 
 # -------------------
 # Step 3: Yes/No Buttons
